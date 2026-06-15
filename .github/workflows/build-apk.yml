@@ -56,8 +56,8 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: TokoKas-Latest.apk
-        tag_name: "latest"
-        name: "TokoKas (Versi Terbaru)"
-        body: "APK ini akan selalu diperbarui secara otomatis setiap kali ada perubahan kode. \n\n🚀 **Silakan klik file `TokoKas-Latest.apk` di bawah ini untuk men-download versi terbarunya!**"
+        tag_name: "v1.2.0"
+        name: "TokoKas v1.2.0"
+        body: "Pembaruan v1.2.0:\n- Ikon aplikasi baru\n- Tema Gelap & Terang di Web\n- Menu Dropdown Profil\n\n🚀 **Silakan klik file `TokoKas-Latest.apk` di bawah ini untuk men-download!**"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
