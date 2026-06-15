@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: '*', // Izinkan semua akses (Vercel Frontend / Mobile)
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -40,7 +40,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🏪 TokoKas Backend running on http://localhost:${PORT}`);
-  console.log(`📋 API Health: http://localhost:${PORT}/api/health\n`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`\n🏪 TokoKas Backend running on http://localhost:${PORT}`);
+    console.log(`📋 API Health: http://localhost:${PORT}/api/health\n`);
+  });
+}
+
+module.exports = app;
