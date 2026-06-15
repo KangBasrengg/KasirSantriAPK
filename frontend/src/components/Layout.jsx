@@ -1,12 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Store, LayoutDashboard, Package, ShoppingCart, BarChart2, LogOut, Menu, X } from 'lucide-react';
+import { Store, LayoutDashboard, Package, ShoppingCart, BarChart2, LogOut, Menu, X, ChevronUp, Sun, Moon, Settings } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+    setDropdownOpen(false);
+  };
 
   const handleLogout = () => {
     if (confirm('Yakin ingin keluar?')) {
@@ -60,20 +72,30 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="user-card" style={{ marginBottom: 12 }}>
+        <div className="sidebar-footer" style={{ position: 'relative' }}>
+          {dropdownOpen && (
+            <div className="user-dropdown">
+              <button onClick={() => { setDropdownOpen(false); alert('Menu Pengaturan Akun akan segera hadir!'); }}>
+                <Settings size={16} /> Pengaturan Akun
+              </button>
+              <button onClick={toggleTheme}>
+                {theme === 'light' ? <><Moon size={16} /> Mode Gelap</> : <><Sun size={16} /> Mode Terang</>}
+              </button>
+              <div className="divider"></div>
+              <button onClick={handleLogout} className="text-danger">
+                <LogOut size={16} /> Keluar
+              </button>
+            </div>
+          )}
+          
+          <div className="user-card" onClick={() => setDropdownOpen(!dropdownOpen)} style={{ cursor: 'pointer' }}>
             <div className="user-avatar">{user?.nama?.charAt(0).toUpperCase()}</div>
             <div className="user-info">
               <div className="name">{user?.nama}</div>
               <div className="role">{user?.role}</div>
             </div>
+            <ChevronUp size={16} style={{ marginLeft: 'auto', color: 'var(--text-light)', transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
           </div>
-          <button 
-            onClick={handleLogout}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
-          >
-            <LogOut size={16} /> Keluar
-          </button>
         </div>
       </aside>
 
