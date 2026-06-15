@@ -1,14 +1,15 @@
 name: Build Android APK
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # Memberi izin ke GitHub Action untuk membuat "Release"
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
@@ -38,8 +39,15 @@ jobs:
       working-directory: ./mobile
       run: flutter build apk --release
 
-    - name: Upload APK Release
-      uses: actions/upload-artifact@v4
+    - name: Rename APK
+      run: mv mobile/build/app/outputs/flutter-apk/app-release.apk TokoKas-Release.apk
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: TokoKas-Release-APK
-        path: mobile/build/app/outputs/flutter-apk/app-release.apk
+        files: TokoKas-Release.apk
+        tag_name: "v1.0.0"
+        name: "TokoKas v1.0.0 (APK)"
+        body: "Ini adalah rilis pertama aplikasi KasirSantri/TokoKas untuk platform Android. \n\n🚀 **Silakan klik file `TokoKas-Release.apk` di bagian Assets di bawah ini untuk men-download dan menginstalnya di HP Anda!**"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
