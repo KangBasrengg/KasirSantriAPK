@@ -1,0 +1,91 @@
+
+
+PRD - TokoKas: Sistem POS Toko Pribadi
+Ringkasan Proyek
+Nama Produk: TokoKas Visi: Satu backend, dua frontend - web untuk pengelolaan & laporan di desktop, Android untuk kasir di lapangan. Target Pengguna: Pemilik toko kecil-menengah yang butuh sistem kasir digital ringan tapi lengkap.
+
+1. Arsitektur Sistem
+Filosofi: One Backend, Two Frontends
+Web App (React)  ??  REST API (Node.js)  ??  Android App (Flutter)
+                          ?
+                    PostgreSQL DB
+Semua data dan logika bisnis hidup di backend. Kedua frontend hanya mengonsumsi API - tidak ada duplikasi logika.
+Tech Stack Rekomendasi
+LayerTeknologiAlasanBackendNode.js + ExpressRingan, ekosistem besar, mudah deployDatabasePostgreSQLRelasional, cocok untuk transaksi & stokAuthJWT (JSON Web Token)Stateless, cocok untuk multi-platformWeb FrontendReact + Tailwind CSSProduktif, UI fleksibelAndroidFlutterSatu codebase ? APK, performa nativeHosting BackendRailway / Render (gratis tier)Mudah, tidak perlu VPS mahalHosting WebVercel / NetlifyDeploy otomatis, gratis
+2. Modul & Fitur
+?? Modul Manajemen Produk
+* Tambah/edit/hapus produk
+* Nama, kode SKU, kategori, satuan
+* Harga beli dan harga jual (margin otomatis terhitung)
+* Tanggal masuk barang & tanggal kadaluarsa (opsional)
+* Stok awal & stok saat ini
+* Upload foto produk (opsional)
+* Peringatan stok kritis (threshold bisa diatur per produk)
+* Import produk massal via CSV/Excel
+?? Modul Kasir (Point of Sale)
+* Antarmuka kasir yang bersih & cepat - optimized untuk Android
+* Cari produk by nama atau scan barcode (kamera HP)
+* Keranjang belanja dengan quantity adjuster
+* Pilihan metode pembayaran: tunai, transfer, QRIS
+* Hitung kembalian otomatis
+* Cetak/kirim struk digital (PDF atau WhatsApp)
+* Mode offline - transaksi tetap jalan walau internet putus, sync otomatis saat online
+?? Modul Laporan & Analitik
+* Laporan penjualan harian / mingguan / bulanan
+* Omzet, HPP (Harga Pokok Penjualan), dan laba bersih per periode
+* Produk terlaris & paling tidak laku
+* Riwayat transaksi lengkap dengan filter
+* Laporan stok - barang masuk, keluar, saldo
+* Export ke PDF dan Excel
+?? Modul Pembelian (Stok Masuk)
+* Catat pembelian dari supplier
+* Update stok otomatis saat barang masuk
+* Histori harga beli - pantau perubahan harga supplier dari waktu ke waktu
+* Kalkulasi HPP bergerak (moving average)
+?? Modul User & Hak Akses
+* Admin - akses penuh (laporan, setting, manajemen produk)
+* Kasir - hanya akses transaksi & cari produk
+* Login per device, satu akun bisa di beberapa device
+* Log aktivitas user (siapa yang transaksi apa & kapan)
+
+3. Desain UX
+Web App (Desktop)
+* Sidebar navigasi kiri dengan semua modul
+* Dashboard utama berisi ringkasan hari ini: omzet, jumlah transaksi, stok kritis
+* Tabel data dengan sorting, filter, dan pagination
+* Grafik omzet 30 hari terakhir
+* Warna tema: netral profesional (putih, abu-abu, aksen biru/hijau)
+Android App
+* Bottom navigation: Kasir · Produk · Laporan · Pengaturan
+* Tampilan kasir: kolom kiri produk/search, kolom kanan keranjang
+* Font & tombol besar - cocok dipakai dengan satu tangan atau di kasir sibuk
+* Dark mode support
+* Notifikasi push untuk stok kritis
+
+4. Database Schema (Ringkasan)
+users         ? id, nama, email, password_hash, role, created_at
+products      ? id, sku, nama, kategori, satuan, harga_jual,
+                stok, stok_minimum, foto_url, tanggal_masuk, exp_date
+purchases     ? id, produk_id, qty, harga_beli, total, tanggal, supplier
+transactions  ? id, kasir_id, total, metode_bayar, bayar, kembalian, waktu
+trx_items     ? id, transaksi_id, produk_id, qty, harga_jual, subtotal
+stock_logs    ? id, produk_id, tipe (in/out), qty, ref_id, waktu
+
+5. API Endpoint (Ringkasan)
+MethodEndpointFungsiPOST/auth/loginLogin userGET/POST/produkList & tambah produkPUT/DELETE/produk/:idEdit & hapus produkPOST/transaksiBuat transaksi baruGET/transaksiRiwayat transaksiPOST/pembelianCatat stok masukGET/laporan/penjualanLaporan penjualanGET/laporan/stokLaporan stok
+6. Roadmap Pengembangan
+Fase 1 - MVP (±6 minggu)
+Setup backend + DB ? Auth (login/logout) ? CRUD Produk ? Modul Kasir dasar ? Laporan sederhana ? Web App
+Fase 2 - Android & Polish (±4 minggu)
+Flutter app ? Scan barcode ? Mode offline ? Struk digital ? Notifikasi stok kritis
+Fase 3 - Fitur Lanjutan (±3 minggu)
+Modul Pembelian & HPP ? Export PDF/Excel ? Multi-outlet (jika diperlukan) ? Backup data otomatis
+
+7. Pertimbangan Teknis Penting
+Mode Offline di Android - ini krusial untuk kasir. Gunakan SQLite lokal di Flutter, sinkronisasi ke server saat ada koneksi. Konflik data diselesaikan dengan timestamp terakhir (last-write-wins).
+Keamanan - semua endpoint kecuali login wajib pakai JWT. Password di-hash dengan bcrypt. HTTPS wajib di production.
+Performa - index database di kolom yang sering diquery (produk.sku, transaksi.waktu). Pagination wajib untuk semua list.
+Backup - jadwalkan dump database otomatis harian ke cloud storage (Backblaze B2 murah banget).
+
+Mau aku lanjutkan ke bagian mana dulu? Bisa langsung generate schema SQL-nya, buat wireframe UI-nya, atau mulai coding backend Express + endpoint pertama. Tinggal bilang!
+

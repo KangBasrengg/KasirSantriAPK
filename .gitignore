@@ -1,0 +1,16 @@
+# Node / Web Frontend / Backend
+node_modules/
+.env
+dist/
+
+# Flutter / Mobile
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+*.log
+
+# Windows / OS
+.DS_Store
+Thumbs.db
