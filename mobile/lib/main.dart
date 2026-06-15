@@ -4,6 +4,7 @@ import 'screens/login_screen.dart';
 import 'screens/pos_screen.dart';
 
 void main() async {
+  // Pastikan widget Flutter sudah terinisialisasi
   WidgetsFlutterBinding.ensureInitialized();
   
   // Cek apakah user sudah login sebelumnya
