@@ -80,4 +80,26 @@ class ApiService {
       throw Exception(data['message'] ?? 'Gagal membuat transaksi');
     }
   }
+
+  static Future<Map<String, dynamic>> getDashboard() async {
+    final headers = await getHeaders();
+    final res = await http.get(Uri.parse('$baseUrl/laporan/dashboard'), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat dashboard');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSalesReport({String periode = 'harian'}) async {
+    final headers = await getHeaders();
+    final res = await http.get(Uri.parse('$baseUrl/laporan/penjualan?periode=$periode'), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat laporan penjualan');
+    }
+  }
 }

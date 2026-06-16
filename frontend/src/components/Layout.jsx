@@ -102,7 +102,7 @@ export default function Layout() {
       {/* Main Content */}
       <main className="main-content" style={{ width: '100%' }}>
         {/* Mobile Header (Hanya tampil di layar kecil) */}
-        <div style={{ display: 'none', alignItems: 'center', padding: '16px 24px', background: '#fff', borderBottom: '1px solid var(--border)' }} className="mobile-header">
+        <div style={{ display: 'none', alignItems: 'center', padding: '16px 24px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }} className="mobile-header">
           <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <Menu size={24} color="var(--text-primary)" />
           </button>

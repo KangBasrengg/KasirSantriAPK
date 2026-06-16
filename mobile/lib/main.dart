@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
-import 'screens/pos_screen.dart';
+import 'screens/main_container.dart';
+import 'providers/theme_provider.dart';
 
 void main() async {
-  // Pastikan widget Flutter sudah terinisialisasi
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Cek apakah user sudah login sebelumnya
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('token');
 
-  runApp(MyApp(isLoggedIn: token != null));
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: MyApp(isLoggedIn: token != null),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -21,14 +26,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return MaterialApp(
       title: 'TokoKas Mobile',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue.shade900),
-        useMaterial3: true,
-      ),
-      home: isLoggedIn ? PosScreen() : LoginScreen(),
+      theme: themeProvider.currentTheme,
+      home: isLoggedIn ? const MainContainer() : const LoginScreen(),
     );
   }
 }
