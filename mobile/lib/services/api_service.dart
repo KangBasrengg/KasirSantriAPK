@@ -3,9 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Ganti dengan URL backend Anda saat di-deploy (misalnya Render atau IP lokal saat test di emulator/HP)
-  // 10.0.2.2 adalah localhost jika dari Android Emulator
-  static const String baseUrl = 'http://10.0.2.2:5000/api';
+  // URL Backend Online (Vercel)
+  static const String baseUrl = 'https://kasirsantribe.vercel.app/api';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
