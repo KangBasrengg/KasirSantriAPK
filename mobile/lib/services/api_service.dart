@@ -114,7 +114,7 @@ class ApiService {
     }
   }
 
-  static Future<void> updateProduct(int id, Map<String, dynamic> product, File? imageFile) async {
+  static Future<void> updateProduct(dynamic id, Map<String, dynamic> product, File? imageFile) async {
     final token = await getToken();
     var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/produk/$id'));
     
@@ -143,7 +143,7 @@ class ApiService {
     }
   }
 
-  static Future<void> deleteProduct(int id) async {
+  static Future<void> deleteProduct(dynamic id) async {
     final headers = await getHeaders();
     final res = await http.delete(Uri.parse('$baseUrl/produk/$id'), headers: headers);
     if (res.statusCode != 200) {
@@ -189,7 +189,7 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getTransactionDetail(int id) async {
+  static Future<Map<String, dynamic>> getTransactionDetail(dynamic id) async {
     final headers = await getHeaders();
     final res = await http.get(Uri.parse('$baseUrl/transaksi/$id'), headers: headers);
     final data = jsonDecode(res.body);
@@ -230,6 +230,26 @@ class ApiService {
       return data['data'];
     } else {
       throw Exception('Gagal memuat laporan laba');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> payload) async {
+    final headers = await getHeaders();
+    final res = await http.put(
+      Uri.parse('$baseUrl/auth/profile'),
+      headers: headers,
+      body: jsonEncode(payload),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200 && data['success']) {
+      // Update local name if changed
+      if (data['data'] != null && data['data']['nama'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_name', data['data']['nama']);
+      }
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Gagal update profil');
     }
   }
 }

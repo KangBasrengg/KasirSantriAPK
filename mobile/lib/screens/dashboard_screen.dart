@@ -51,6 +51,13 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _showTransactionDetail(Map<String, dynamic> trx) async {
+    showDialog(
+      context: context,
+      builder: (_) => _TransactionDetailDialog(transactionId: trx['id'], formatCurrency: formatCurrency),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
@@ -79,6 +86,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final hariIni = d['hari_ini'] as Map<String, dynamic>? ?? {};
     final bulanIni = d['bulan_ini'] as Map<String, dynamic>? ?? {};
     final profitHariIni = p['hari_ini'] as Map<String, dynamic>? ?? {};
+    final profitBulanIni = p['bulan_ini'] as Map<String, dynamic>? ?? {};
     final transaksiTerakhir = d['transaksi_terakhir'] as List? ?? [];
     
     return RefreshIndicator(
@@ -110,6 +118,14 @@ class DashboardScreenState extends State<DashboardScreen> {
             Icons.shopping_cart,
           ),
           const SizedBox(height: 12),
+          _buildStatCard(
+            'Laba Bulan Ini',
+            formatCurrency.format(num.tryParse(profitBulanIni['laba']?.toString() ?? '0') ?? 0),
+            'Penjualan: ${formatCurrency.format(num.tryParse(profitBulanIni['penjualan']?.toString() ?? '0') ?? 0)}',
+            const Color(0xFF059669),
+            Icons.trending_up,
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -134,19 +150,47 @@ class DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          Text('Transaksi Terakhir', style: Theme.of(context).textTheme.titleLarge),
+          Row(
+            children: [
+              Text('Transaksi Terakhir', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(width: 8),
+              const Text('(tap untuk detail)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
           const SizedBox(height: 8),
           ... transaksiTerakhir.map((t) {
             final trans = t as Map<String, dynamic>;
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                title: Text(trans['nomor_transaksi'] ?? '-', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                onTap: () => _showTransactionDetail(trans),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.withOpacity(0.1),
+                  child: const Icon(Icons.receipt, color: Colors.blue, size: 20),
+                ),
+                title: Text(trans['nomor_transaksi'] ?? '-', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 13)),
                 subtitle: Text(trans['waktu'] != null ? DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(trans['waktu'])) : '-'),
-                trailing: Text(formatCurrency.format(num.tryParse(trans['total']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(formatCurrency.format(num.tryParse(trans['total']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: trans['metode_bayar'] == 'tunai' ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        trans['metode_bayar']?.toString() ?? 'tunai',
+                        style: TextStyle(fontSize: 10, color: trans['metode_bayar'] == 'tunai' ? Colors.green : Colors.blue, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
-          }).toList(),
+          }),
           if (transaksiTerakhir.isEmpty)
             const Padding(
               padding: EdgeInsets.all(32),
@@ -184,6 +228,138 @@ class DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ============ Transaction Detail Dialog ============
+class _TransactionDetailDialog extends StatefulWidget {
+  final dynamic transactionId;
+  final NumberFormat formatCurrency;
+  const _TransactionDetailDialog({required this.transactionId, required this.formatCurrency});
+
+  @override
+  State<_TransactionDetailDialog> createState() => _TransactionDetailDialogState();
+}
+
+class _TransactionDetailDialogState extends State<_TransactionDetailDialog> {
+  Map<String, dynamic>? _detail;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    try {
+      final res = await ApiService.getTransactionDetail(widget.transactionId);
+      if (mounted) setState(() { _detail = res; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Detail Transaksi'),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.95,
+        child: _isLoading
+          ? const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()))
+          : _error != null
+            ? Text('Gagal: $_error')
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _infoRow('No. Transaksi', _detail!['nomor_transaksi'] ?? '-'),
+                    _infoRow('Waktu', _detail!['waktu'] != null
+                      ? DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(_detail!['waktu']))
+                      : '-'),
+                    _infoRow('Metode Bayar', (_detail!['metode_bayar'] ?? 'tunai').toString().toUpperCase()),
+                    _infoRow('Kasir', _detail!['kasir_nama'] ?? '-'),
+                    const Divider(height: 24),
+                    const Text('Rincian Pembelian:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(_detail!['items'] as List? ?? []).map((item) {
+                      final i = item as Map<String, dynamic>;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(i['nama_produk'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text('${i['qty']} x ${widget.formatCurrency.format(num.tryParse(i['harga_jual']?.toString() ?? '0') ?? 0)}',
+                                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                            Text(widget.formatCurrency.format(num.tryParse(i['subtotal']?.toString() ?? '0') ?? 0),
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      );
+                    }),
+                    const Divider(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                        Text(widget.formatCurrency.format(num.tryParse(_detail!['total']?.toString() ?? '0') ?? 0),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.blue)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Bayar', style: TextStyle(fontSize: 14)),
+                        Text(widget.formatCurrency.format(num.tryParse(_detail!['bayar']?.toString() ?? '0') ?? 0),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    if ((num.tryParse(_detail!['kembalian']?.toString() ?? '0') ?? 0) > 0)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Kembalian', style: TextStyle(fontSize: 14)),
+                          Text(widget.formatCurrency.format(num.tryParse(_detail!['kembalian']?.toString() ?? '0') ?? 0),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup')),
+      ],
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 110, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))),
+          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+        ],
       ),
     );
   }
