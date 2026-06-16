@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Store, LayoutDashboard, Package, ShoppingCart, BarChart2, LogOut, Menu, X, ChevronUp, Sun, Moon, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BarChart2, LogOut, Menu, X, ChevronUp, Sun, Moon, Settings } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth();
@@ -47,7 +47,7 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <div className="logo"><Store size={22} color="#fff" /></div>
+          <div className="logo"><img src="/icon.png" alt="TokoKas Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
           <h1>TokoKas</h1>
           <button 
             style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#fff', display: 'var(--mobile-only, none)' }}

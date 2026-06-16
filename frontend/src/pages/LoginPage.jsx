@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { login as loginApi } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Store, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const { loginUser } = useAuth();
@@ -30,7 +30,7 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="logo-section">
           <div className="logo-icon">
-            <Store size={32} color="#fff" />
+            <img src="/icon.png" alt="TokoKas Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h2>TokoKas</h2>
           <p className="tagline">Sistem POS Toko Pribadi</p>
