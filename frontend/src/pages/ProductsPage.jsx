@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct } from '../api';
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, createCategory } from '../api';
 import { formatRupiah } from '../utils/format';
 import { Plus, Search, Edit2, Trash2, X, Package } from 'lucide-react';
 
@@ -14,6 +14,11 @@ export default function ProductsPage() {
   const [form, setForm] = useState({ nama: '', sku: '', kategori_id: '', satuan: 'pcs', harga_beli: '', harga_jual: '', stok: '', stok_minimum: '5' });
   const [saving, setSaving] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+
+  // Add Category State
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [savingCat, setSavingCat] = useState(false);
 
   const fetchProducts = async (page = 1) => {
     try {
@@ -51,6 +56,23 @@ export default function ProductsPage() {
   const handleDelete = async (id, nama) => {
     if (!confirm(`Hapus produk "${nama}"?`)) return;
     try { await deleteProduct(id); fetchProducts(pagination.page); } catch (e) { alert(e.message); }
+  };
+
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    setSavingCat(true);
+    try {
+      const res = await createCategory({ nama: newCatName });
+      setCategories([...categories, res.data]);
+      setForm({ ...form, kategori_id: res.data.id });
+      setShowAddCat(false);
+      setNewCatName('');
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingCat(false);
+    }
   };
 
   return (
@@ -125,10 +147,15 @@ export default function ProductsPage() {
                   <div className="form-group"><label>Satuan</label><input className="form-control" value={form.satuan} onChange={e => setForm({ ...form, satuan: e.target.value })} /></div>
                 </div>
                 <div className="form-group"><label>Kategori</label>
-                  <select className="form-control" value={form.kategori_id} onChange={e => setForm({ ...form, kategori_id: e.target.value })}>
-                    <option value="">Pilih kategori</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select className="form-control" value={form.kategori_id} onChange={e => setForm({ ...form, kategori_id: e.target.value })}>
+                      <option value="">Pilih kategori</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+                    </select>
+                    <button type="button" className="btn btn-outline" style={{ padding: '0 12px' }} onClick={() => setShowAddCat(true)} title="Tambah Kategori Baru">
+                      <Plus size={18} />
+                    </button>
+                  </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group"><label>Harga Beli</label><input className="form-control" type="number" value={form.harga_beli} onChange={e => setForm({ ...form, harga_beli: e.target.value })} /></div>
@@ -144,6 +171,30 @@ export default function ProductsPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      {showAddCat && (
+        <div className="modal-overlay" style={{ zIndex: 300 }} onClick={() => setShowAddCat(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>Tambah Kategori Baru</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowAddCat(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Nama Kategori</label>
+                <input className="form-control" autoFocus value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Misal: Minuman Dingin" onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(e); }} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline" onClick={() => setShowAddCat(false)}>Batal</button>
+              <button type="button" className="btn btn-primary" disabled={savingCat || !newCatName.trim()} onClick={handleAddCategory}>
+                {savingCat ? 'Menyimpan...' : 'Simpan Kategori'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -24,14 +24,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _fetchProducts() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final res = await ApiService.getProducts(search: _search);
-      setState(() => _products = res);
+      if (mounted) {
+        setState(() {
+          _products = res;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -39,36 +46,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => ProductFormDialog(
+      builder: (context) => ProductFormDialog(
         product: product,
         onSuccess: () {
           _fetchProducts();
         },
-      ),
-    );
-  }
-
-  void _deleteProduct(int id, String name) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Hapus Produk'),
-        content: Text('Apakah Anda yakin ingin menghapus "$name"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ApiService.deleteProduct(id);
-                _fetchProducts();
-              } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-              }
-            },
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
     );
   }
@@ -104,8 +86,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _products.length,
                     itemBuilder: (context, index) {
-                      final p = _products[index];
-                      final isKritis = p['stok'] <= (p['stok_minimum'] ?? 5);
+                      final p = _products[index] as Map<String, dynamic>;
+                      final stok = int.tryParse(p['stok']?.toString() ?? '0') ?? 0;
+                      final stokMin = int.tryParse(p['stok_minimum']?.toString() ?? '5') ?? 5;
+                      final isKritis = stok <= stokMin;
+                      
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
@@ -116,20 +101,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               color: Colors.blue.shade50,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: p['foto_url'] != null 
+                            child: (p['foto_url'] != null && p['foto_url'].toString().isNotEmpty)
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(p['foto_url'], fit: BoxFit.cover),
+                                  child: Image.network(
+                                    p['foto_url'], 
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, color: Colors.blue),
+                                  ),
                                 )
                               : const Icon(Icons.inventory_2, color: Colors.blue),
                           ),
-                          title: Text(p['nama'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Stok: ${p['stok']} ${p['satuan'] ?? 'pcs'}'),
+                          title: Text(p['nama']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('Stok: $stok ${p['satuan'] ?? 'pcs'}'),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text(formatCurrency.format(double.parse(p['harga_jual'].toString())), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                              Text(formatCurrency.format(num.tryParse(p['harga_jual']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                               if (isKritis)
                                 const Text('Stok Tipis!', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
                             ],
@@ -178,27 +167,47 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   @override
   void initState() {
     super.initState();
-    final p = widget.product;
-    _namaController = TextEditingController(text: p?['nama'] ?? '');
-    _skuController = TextEditingController(text: p?['sku'] ?? '');
+    final p = widget.product as Map<String, dynamic>?;
+    _namaController = TextEditingController(text: p?['nama']?.toString() ?? '');
+    _skuController = TextEditingController(text: p?['sku']?.toString() ?? '');
     _hargaBeliController = TextEditingController(text: p?['harga_beli']?.toString() ?? '');
     _hargaJualController = TextEditingController(text: p?['harga_jual']?.toString() ?? '');
     _stokController = TextEditingController(text: p?['stok']?.toString() ?? '');
     _stokMinController = TextEditingController(text: p?['stok_minimum']?.toString() ?? '5');
-    _satuanController = TextEditingController(text: p?['satuan'] ?? 'pcs');
-    _selectedCategoryId = p?['kategori_id'];
+    _satuanController = TextEditingController(text: p?['satuan']?.toString() ?? 'pcs');
+    _selectedCategoryId = p?['kategori_id'] != null ? int.tryParse(p!['kategori_id'].toString()) : null;
     _fetchCategories();
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _skuController.dispose();
+    _hargaBeliController.dispose();
+    _hargaJualController.dispose();
+    _stokController.dispose();
+    _stokMinController.dispose();
+    _satuanController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCategories() async {
     try {
       final res = await ApiService.getCategories();
-      setState(() {
-        _categories = res;
-        _isLoadingCats = false;
-      });
+      if (mounted) {
+        setState(() {
+          _categories = res;
+          if (_selectedCategoryId != null) {
+            bool exists = _categories.any((cat) => int.tryParse(cat['id']?.toString() ?? '0') == _selectedCategoryId);
+            if (!exists) _selectedCategoryId = null;
+          }
+          _isLoadingCats = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoadingCats = false);
+      if (mounted) {
+        setState(() => _isLoadingCats = false);
+      }
     }
   }
 
@@ -212,14 +221,16 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.product != null;
+    final p = widget.product as Map<String, dynamic>?;
+    final isEdit = p != null;
+    final hasRemoteIcon = p != null && p['foto_url'] != null && p['foto_url'].toString().isNotEmpty;
 
     return AlertDialog(
       title: Text(isEdit ? 'Edit Produk' : 'Tambah Produk'),
       content: SizedBox(
-        width: double.maxFinite,
+        width: MediaQuery.of(context).size.width * 0.9,
         child: _isLoadingCats 
-          ? const Center(child: CircularProgressIndicator())
+          ? const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()))
           : Form(
               key: _formKey,
               child: SingleChildScrollView(
@@ -229,20 +240,20 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     GestureDetector(
                       onTap: _pickImage,
                       child: Container(
-                        height: 120, width: 120,
+                        height: 100, width: 100,
                         decoration: BoxDecoration(
                           color: Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(12),
                           image: _imageFile != null 
                             ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
-                            : (widget.product?['foto_url'] != null 
-                                ? DecorationImage(image: NetworkImage(widget.product['foto_url']), fit: BoxFit.cover)
+                            : (hasRemoteIcon
+                                ? DecorationImage(image: NetworkImage(p['foto_url'].toString()), fit: BoxFit.cover)
                                 : null),
                         ),
-                        child: (_imageFile == null && widget.product?['foto_url'] == null)
+                        child: (_imageFile == null && !hasRemoteIcon)
                           ? const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: [Icon(Icons.camera_alt, size: 40, color: Colors.grey), Text('Foto', style: TextStyle(color: Colors.grey))],
+                              children: [Icon(Icons.camera_alt, color: Colors.grey), Text('Foto', style: TextStyle(color: Colors.grey, fontSize: 12))],
                             )
                           : null,
                       ),
@@ -251,7 +262,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     TextFormField(
                       controller: _namaController,
                       decoration: const InputDecoration(labelText: 'Nama Produk *', border: OutlineInputBorder()),
-                      validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -275,10 +286,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     DropdownButtonFormField<int>(
                       value: _selectedCategoryId,
                       decoration: const InputDecoration(labelText: 'Kategori', border: OutlineInputBorder()),
-                      items: _categories.map<DropdownMenuItem<int>>((cat) => DropdownMenuItem<int>(
-                        value: cat['id'],
-                        child: Text(cat['nama']),
-                      )).toList(),
+                      items: _categories.map<DropdownMenuItem<int>>((cat) {
+                        final id = int.tryParse(cat['id']?.toString() ?? '0') ?? 0;
+                        return DropdownMenuItem<int>(
+                          value: id,
+                          child: Text(cat['nama']?.toString() ?? '-'),
+                        );
+                      }).toList(),
                       onChanged: (val) => setState(() => _selectedCategoryId = val),
                     ),
                     const SizedBox(height: 12),
@@ -297,7 +311,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                             controller: _hargaJualController,
                             decoration: const InputDecoration(labelText: 'Harga Jual *', border: OutlineInputBorder(), prefixText: 'Rp '),
                             keyboardType: TextInputType.number,
-                            validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
+                            validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
                           ),
                         ),
                       ],

@@ -179,4 +179,15 @@ class ApiService {
       throw Exception('Gagal memuat laporan penjualan');
     }
   }
+
+  static Future<Map<String, dynamic>> getProfitReport() async {
+    final headers = await getHeaders();
+    final res = await http.get(Uri.parse('$baseUrl/laporan/laba'), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat laporan laba');
+    }
+  }
 }

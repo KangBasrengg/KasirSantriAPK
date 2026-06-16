@@ -12,6 +12,7 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _salesData;
+  String? _errorMessage;
   String _periode = 'harian';
   final formatCurrency = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
@@ -22,17 +23,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _fetchReport() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _salesData = null;
+      _errorMessage = null;
     });
     try {
       final res = await ApiService.getSalesReport(periode: _periode);
-      setState(() => _salesData = res);
+      if (mounted) {
+        setState(() {
+          _salesData = res;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -55,10 +66,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ],
                   selected: {_periode},
                   onSelectionChanged: (newSelection) {
-                    setState(() {
-                      _periode = newSelection.first;
-                    });
-                    _fetchReport();
+                    if (mounted) {
+                      setState(() {
+                        _periode = newSelection.first;
+                      });
+                      _fetchReport();
+                    }
                   },
                 ),
               ),
@@ -67,6 +80,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         if (_isLoading)
           const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (_errorMessage != null)
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(_errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(onPressed: _fetchReport, child: const Text('Coba Lagi')),
+                  ],
+                ),
+              ),
+            ),
+          )
         else if (_salesData != null && _salesData!.containsKey('ringkasan'))
           Expanded(
             child: ListView(
@@ -78,7 +109,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     child: Column(
                       children: [
                         const Text('Total Omzet'),
-                        Text(formatCurrency.format(_salesData!['ringkasan']?['total_omzet'] ?? 0), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
+                        Text(formatCurrency.format(num.tryParse(_salesData!['ringkasan']?['total_omzet']?.toString() ?? '0') ?? 0), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
                         const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -95,13 +126,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const Text('Detail Periode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 8),
                 if (_salesData!['laporan'] != null && (_salesData!['laporan'] as List).isNotEmpty)
-                  ... (_salesData!['laporan'] as List).map((l) => Card(
-                    child: ListTile(
-                      title: Text(l['periode'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('${l['jumlah_transaksi'] ?? 0} transaksi'),
-                      trailing: Text(formatCurrency.format(l['total_penjualan'] ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                    ),
-                  )).toList()
+                  ... (_salesData!['laporan'] as List).map((l) {
+                    final row = l as Map<String, dynamic>;
+                    return Card(
+                      child: ListTile(
+                        title: Text(row['periode']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${row['jumlah_transaksi'] ?? 0} transaksi'),
+                        trailing: Text(formatCurrency.format(num.tryParse(row['total_penjualan']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                      ),
+                    );
+                  }).toList()
                 else
                   const Padding(
                     padding: EdgeInsets.all(32),
@@ -118,7 +152,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 children: [
                   Icon(Icons.bar_chart, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text('Gagal memuat atau data kosong', style: TextStyle(color: Colors.grey)),
+                  Text('Data kosong', style: TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
