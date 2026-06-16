@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
@@ -56,6 +58,81 @@ class ApiService {
       return data['data'];
     } else {
       throw Exception('Gagal memuat produk');
+    }
+  }
+
+  static Future<List<dynamic>> getCategories() async {
+    final headers = await getHeaders();
+    final res = await http.get(Uri.parse('$baseUrl/produk/categories'), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat kategori');
+    }
+  }
+
+  static Future<void> createProduct(Map<String, dynamic> product, File? imageFile) async {
+    final token = await getToken();
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/produk'));
+    
+    request.headers['Authorization'] = 'Bearer $token';
+    
+    // Add fields
+    product.forEach((key, value) {
+      request.fields[key] = value.toString();
+    });
+
+    // Add image
+    if (imageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'foto', 
+        imageFile.path,
+        contentType: MediaType('image', 'jpeg'),
+      ));
+    }
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+    
+    if (response.statusCode != 201) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['message'] ?? 'Gagal membuat produk');
+    }
+  }
+
+  static Future<void> updateProduct(int id, Map<String, dynamic> product, File? imageFile) async {
+    final token = await getToken();
+    var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/produk/$id'));
+    
+    request.headers['Authorization'] = 'Bearer $token';
+    
+    product.forEach((key, value) {
+      request.fields[key] = value.toString();
+    });
+
+    if (imageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'foto', 
+        imageFile.path,
+        contentType: MediaType('image', 'jpeg'),
+      ));
+    }
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+    
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['message'] ?? 'Gagal update produk');
+    }
+  }
+
+  static Future<void> deleteProduct(int id) async {
+    final headers = await getHeaders();
+    final res = await http.delete(Uri.parse('$baseUrl/produk/$id'), headers: headers);
+    if (res.statusCode != 200) {
+      throw Exception('Gagal menghapus produk');
     }
   }
 

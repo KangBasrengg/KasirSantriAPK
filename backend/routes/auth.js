@@ -181,4 +181,50 @@ router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/auth/profile
+ * Update own profile (nama & password)
+ */
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { nama, password_lama, password_baru } = req.body;
+    const userId = req.user.id;
+
+    // If changing password, verify old password first
+    if (password_baru) {
+      if (!password_lama) {
+        return res.status(400).json({ success: false, message: 'Password lama wajib diisi.' });
+      }
+      const userResult = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+      }
+      const isValid = await bcrypt.compare(password_lama, userResult.rows[0].password_hash);
+      if (!isValid) {
+        return res.status(401).json({ success: false, message: 'Password lama salah.' });
+      }
+      const newHash = await bcrypt.hash(password_baru, 10);
+      const result = await pool.query(
+        'UPDATE users SET nama=COALESCE($1, nama), password_hash=$2, updated_at=NOW() WHERE id=$3 RETURNING id, nama, email, role',
+        [nama, newHash, userId]
+      );
+      return res.json({ success: true, message: 'Profil & password berhasil diupdate.', data: result.rows[0] });
+    }
+
+    // Only update nama
+    if (nama) {
+      const result = await pool.query(
+        'UPDATE users SET nama=$1, updated_at=NOW() WHERE id=$2 RETURNING id, nama, email, role',
+        [nama, userId]
+      );
+      return res.json({ success: true, message: 'Profil berhasil diupdate.', data: result.rows[0] });
+    }
+
+    res.status(400).json({ success: false, message: 'Tidak ada data untuk diupdate.' });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+});
+
 module.exports = router;

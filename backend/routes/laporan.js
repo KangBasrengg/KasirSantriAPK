@@ -166,4 +166,69 @@ router.get('/produk-terlaris', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/laporan/laba - Laporan laba (harga_jual - harga_beli) 7 hari terakhir
+router.get('/laba', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+         t.waktu::date as tanggal,
+         COALESCE(SUM(ti.subtotal), 0) as total_penjualan,
+         COALESCE(SUM(p.harga_beli * ti.qty), 0) as total_modal,
+         COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as laba
+       FROM trx_items ti
+       JOIN transactions t ON ti.transaksi_id = t.id
+       JOIN products p ON ti.produk_id = p.id
+       WHERE t.waktu >= CURRENT_DATE - INTERVAL '7 days'
+       GROUP BY t.waktu::date
+       ORDER BY tanggal ASC`
+    );
+
+    // Laba hari ini
+    const today = new Date().toISOString().slice(0, 10);
+    const labaHariIni = await pool.query(
+      `SELECT 
+         COALESCE(SUM(ti.subtotal), 0) as total_penjualan,
+         COALESCE(SUM(p.harga_beli * ti.qty), 0) as total_modal,
+         COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as laba
+       FROM trx_items ti
+       JOIN transactions t ON ti.transaksi_id = t.id
+       JOIN products p ON ti.produk_id = p.id
+       WHERE t.waktu::date = $1`,
+      [today]
+    );
+
+    // Laba bulan ini
+    const labaBulanIni = await pool.query(
+      `SELECT 
+         COALESCE(SUM(ti.subtotal), 0) as total_penjualan,
+         COALESCE(SUM(p.harga_beli * ti.qty), 0) as total_modal,
+         COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as laba
+       FROM trx_items ti
+       JOIN transactions t ON ti.transaksi_id = t.id
+       JOIN products p ON ti.produk_id = p.id
+       WHERE DATE_TRUNC('month', t.waktu) = DATE_TRUNC('month', CURRENT_DATE)`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        laba_7_hari: result.rows,
+        hari_ini: {
+          penjualan: parseFloat(labaHariIni.rows[0].total_penjualan),
+          modal: parseFloat(labaHariIni.rows[0].total_modal),
+          laba: parseFloat(labaHariIni.rows[0].laba)
+        },
+        bulan_ini: {
+          penjualan: parseFloat(labaBulanIni.rows[0].total_penjualan),
+          modal: parseFloat(labaBulanIni.rows[0].total_modal),
+          laba: parseFloat(labaBulanIni.rows[0].laba)
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Laporan laba error:', err);
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+});
+
 module.exports = router;

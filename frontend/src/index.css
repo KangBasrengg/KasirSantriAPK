@@ -1,21 +1,3 @@
-/* ================================================
-   TokoKas Design System
-   ================================================ */
-
-[data-theme="dark"] {
-  --bg-main: #0f172a;
-  --bg-card: #1e293b;
-  --bg-sidebar: #020617;
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-light: #64748b;
-  --border: #334155;
-  --primary-light: rgba(37,99,235,0.2);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-  --shadow: 0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
-}
 
 .user-dropdown {
   position: absolute;
@@ -102,6 +84,22 @@
 
   /* Transitions */
   --transition: all 0.2s ease;
+}
+
+/* ============ DARK MODE ============ */
+[data-theme="dark"] {
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --bg-sidebar: #020617;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-light: #64748b;
+  --border: #334155;
+  --primary-light: rgba(37,99,235,0.2);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -841,3 +839,23 @@ tbody tr:last-child td { border-bottom: none; }
 
 .change-display .label { font-size: 13px; opacity: 0.9; }
 .change-display .amount { font-size: 28px; font-weight: 800; }
+
+/* ============ ACCOUNT SETTINGS MODAL ============ */
+.settings-form .form-group { margin-bottom: 16px; }
+.settings-form .info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.settings-form .info-row .label { font-size: 13px; color: var(--text-secondary); }
+.settings-form .info-row .value { font-size: 14px; font-weight: 600; }
+.settings-success { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: var(--radius-xs); font-size: 13px; margin-bottom: 16px; border: 1px solid #a7f3d0; }
+
+/* ============ PRINT RECEIPT ============ */
+@media print {
+  body * { visibility: hidden; }
+  .receipt-print, .receipt-print * { visibility: visible; }
+  .receipt-print {
+    position: absolute; left: 0; top: 0; width: 80mm;
+    font-family: 'Courier New', monospace; font-size: 12px; color: #000;
+  }
+}

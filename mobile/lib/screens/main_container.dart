@@ -31,7 +31,13 @@ class _MainContainerState extends State<MainContainer> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TokoKas'),
+        title: Row(
+          children: [
+            Image.asset('assets/icon.png', width: 32, height: 32),
+            const SizedBox(width: 10),
+            const Text('TokoKas', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
         actions: [
           IconButton(
             icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode),

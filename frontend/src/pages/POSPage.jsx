@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getProducts, createTransaction } from '../api';
-import { formatRupiah } from '../utils/format';
-import { Search, Plus, Minus, Trash2, ShoppingCart, Check, X } from 'lucide-react';
+import { formatRupiah, formatDateTime } from '../utils/format';
+import { Search, Plus, Minus, Trash2, ShoppingCart, Check, X, Printer } from 'lucide-react';
 
 export default function POSPage() {
   const [products, setProducts] = useState([]);
@@ -83,6 +83,66 @@ export default function POSPage() {
     }
   };
 
+  const handlePrintReceipt = (trx) => {
+    const items = trx.items || [];
+    const now = new Date(trx.waktu || Date.now());
+    const tanggal = now.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const receiptHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Struk - ${trx.nomor_transaksi}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; width: 80mm; margin: 0 auto; padding: 8mm 4mm; font-size: 12px; color: #000; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 6px 0; }
+          .row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .item-name { margin: 4px 0 2px; font-weight: bold; }
+          .item-detail { display: flex; justify-content: space-between; color: #333; font-size: 11px; }
+          h2 { font-size: 16px; margin-bottom: 2px; }
+          .footer { margin-top: 12px; text-align: center; font-size: 11px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <h2>TokoKas</h2>
+          <p style="font-size:11px;color:#666;">Sistem POS Toko Pribadi</p>
+        </div>
+        <div class="divider"></div>
+        <div class="row"><span>No:</span><span class="bold">${trx.nomor_transaksi}</span></div>
+        <div class="row"><span>Waktu:</span><span>${tanggal}</span></div>
+        <div class="row"><span>Metode:</span><span style="text-transform:capitalize">${trx.metode_bayar}</span></div>
+        <div class="divider"></div>
+        ${items.map(item => `
+          <div class="item-name">${item.nama_produk}</div>
+          <div class="item-detail">
+            <span>${item.qty} x ${Number(item.harga_jual).toLocaleString('id-ID')}</span>
+            <span>${Number(item.subtotal).toLocaleString('id-ID')}</span>
+          </div>
+        `).join('')}
+        <div class="divider"></div>
+        <div class="row bold"><span>TOTAL</span><span>Rp ${Number(trx.total).toLocaleString('id-ID')}</span></div>
+        <div class="row"><span>Bayar</span><span>Rp ${Number(trx.bayar).toLocaleString('id-ID')}</span></div>
+        ${Number(trx.kembalian) > 0 ? `<div class="row"><span>Kembalian</span><span>Rp ${Number(trx.kembalian).toLocaleString('id-ID')}</span></div>` : ''}
+        <div class="divider"></div>
+        <div class="footer">
+          <p>Terima kasih!</p>
+          <p>Barang yang sudah dibeli</p>
+          <p>tidak dapat dikembalikan.</p>
+        </div>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=320,height=600');
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+  };
+
   if (successTrx) {
     return (
       <div className="page-body" style={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -108,7 +168,9 @@ export default function POSPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-outline" style={{ flex: 1 }}>Cetak Struk</button>
+            <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => handlePrintReceipt(successTrx)}>
+              <Printer size={16} /> Cetak Struk
+            </button>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setSuccessTrx(null)}>Trx Baru</button>
           </div>
         </div>

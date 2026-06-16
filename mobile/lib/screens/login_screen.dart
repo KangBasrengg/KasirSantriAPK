@@ -72,12 +72,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       // Logo Section
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(Icons.store, size: 48, color: Colors.blue.shade700),
+                        child: Image.asset('assets/icon.png', width: 64, height: 64),
                       ),
                       const SizedBox(height: 16),
                       const Text(

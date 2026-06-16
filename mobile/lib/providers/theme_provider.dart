@@ -32,7 +32,7 @@ class ThemeProvider with ChangeNotifier {
     brightness: Brightness.light,
     primaryColor: const Color(0xFF2563EB),
     scaffoldBackgroundColor: const Color(0xFFF1F5F9),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -60,7 +60,7 @@ class ThemeProvider with ChangeNotifier {
     brightness: Brightness.dark,
     primaryColor: const Color(0xFF2563EB),
     scaffoldBackgroundColor: const Color(0xFF0F172A),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: const Color(0xFF1E293B),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
