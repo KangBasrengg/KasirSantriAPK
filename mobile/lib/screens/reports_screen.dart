@@ -6,10 +6,10 @@ class ReportsScreen extends StatefulWidget {
   const ReportsScreen({Key? key}) : super(key: key);
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
+  State<ReportsScreen> createState() => ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class ReportsScreenState extends State<ReportsScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _salesData;
   String? _errorMessage;
@@ -19,10 +19,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchReport();
+    fetchReport();
   }
 
-  Future<void> _fetchReport() async {
+  Future<void> fetchReport() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -45,6 +45,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
         });
       }
     }
+  }
+
+  void _showTransactionDetails(String dateLabel) {
+    // Attempt to parse date from label if it's harian
+    String? filterDate;
+    if (_periode == 'harian') {
+       filterDate = dateLabel; // Usually YYYY-MM-DD
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TransactionListSheet(filterDate: filterDate),
+    );
   }
 
   @override
@@ -70,7 +85,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       setState(() {
                         _periode = newSelection.first;
                       });
-                      _fetchReport();
+                      fetchReport();
                     }
                   },
                 ),
@@ -92,7 +107,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const SizedBox(height: 16),
                     Text(_errorMessage!, textAlign: TextAlign.center),
                     const SizedBox(height: 16),
-                    ElevatedButton(onPressed: _fetchReport, child: const Text('Coba Lagi')),
+                    ElevatedButton(onPressed: fetchReport, child: const Text('Coba Lagi')),
                   ],
                 ),
               ),
@@ -123,16 +138,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text('Detail Periode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Detail Periode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    const Text('Klik untuk detail', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 if (_salesData!['laporan'] != null && (_salesData!['laporan'] as List).isNotEmpty)
                   ... (_salesData!['laporan'] as List).map((l) {
                     final row = l as Map<String, dynamic>;
                     return Card(
                       child: ListTile(
+                        onTap: () => _showTransactionDetails(row['periode']?.toString() ?? ''),
                         title: Text(row['periode']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text('${row['jumlah_transaksi'] ?? 0} transaksi'),
-                        trailing: Text(formatCurrency.format(num.tryParse(row['total_penjualan']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(formatCurrency.format(num.tryParse(row['total_penjualan']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                            const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                          ],
+                        ),
                       ),
                     );
                   }).toList()
@@ -158,6 +186,87 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class TransactionListSheet extends StatefulWidget {
+  final String? filterDate;
+  const TransactionListSheet({Key? key, this.filterDate}) : super(key: key);
+
+  @override
+  State<TransactionListSheet> createState() => _TransactionListSheetState();
+}
+
+class _TransactionListSheetState extends State<TransactionListSheet> {
+  bool _isLoading = true;
+  List<dynamic> _transactions = [];
+  final formatCurrency = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final res = await ApiService.getTransactions(date: widget.filterDate);
+      if (mounted) {
+        setState(() {
+          _transactions = res;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(widget.filterDate != null ? 'Transaksi ${widget.filterDate}' : 'Riwayat Transaksi', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : _transactions.isEmpty
+                ? const Center(child: Text('Tidak ada transaksi'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _transactions.length,
+                    itemBuilder: (ctx, i) {
+                      final t = _transactions[i];
+                      return Card(
+                        child: ListTile(
+                          title: Text(t['nomor_transaksi'], style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                          subtitle: Text(DateFormat('HH:mm').format(DateTime.parse(t['waktu'])) + ' • ' + t['metode_bayar'].toString().toUpperCase()),
+                          trailing: Text(formatCurrency.format(num.parse(t['total'].toString())), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

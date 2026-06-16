@@ -167,8 +167,15 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const {
       nama, sku, kategori_id, satuan, harga_beli, harga_jual,
-      stok_minimum, foto_url, exp_date
+      stok, stok_minimum, foto_url, exp_date
     } = req.body;
+
+    // Get old stock for logging
+    const oldProduct = await pool.query('SELECT stok FROM products WHERE id = $1', [id]);
+    if (oldProduct.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan.' });
+    }
+    const oldStok = oldProduct.rows[0].stok;
 
     const result = await pool.query(
       `UPDATE products SET 
@@ -178,17 +185,25 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
         satuan = COALESCE($4, satuan),
         harga_beli = COALESCE($5, harga_beli),
         harga_jual = COALESCE($6, harga_jual),
-        stok_minimum = COALESCE($7, stok_minimum),
-        foto_url = $8,
-        exp_date = $9,
+        stok = COALESCE($7, stok),
+        stok_minimum = COALESCE($8, stok_minimum),
+        foto_url = $9,
+        exp_date = $10,
         updated_at = NOW()
-       WHERE id = $10 
+       WHERE id = $11 
        RETURNING *`,
-      [nama, sku, kategori_id || null, satuan, harga_beli, harga_jual, stok_minimum, foto_url || null, exp_date || null, id]
+      [nama, sku, kategori_id || null, satuan, harga_beli, harga_jual, stok, stok_minimum, foto_url || null, exp_date || null, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan.' });
+    // If stock was adjusted manually, log it
+    const newStok = result.rows[0].stok;
+    if (stok !== undefined && oldStok !== newStok) {
+      const diff = newStok - oldStok;
+      const tipe = diff > 0 ? 'in' : 'out';
+      await pool.query(
+        `INSERT INTO stock_logs (produk_id, tipe, qty, ref_type, keterangan) VALUES ($1, $2, $3, 'manual_edit', 'Penyesuaian stok manual dari Edit Produk')`,
+        [id, tipe, Math.abs(diff)]
+      );
     }
 
     res.json({

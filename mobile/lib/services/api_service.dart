@@ -72,18 +72,32 @@ class ApiService {
     }
   }
 
+  static Future<void> createCategory(String name) async {
+    final headers = await getHeaders();
+    final res = await http.post(
+      Uri.parse('$baseUrl/produk/categories'),
+      headers: headers,
+      body: jsonEncode({'nama': name}),
+    );
+    if (res.statusCode != 201) {
+      final data = jsonDecode(res.body);
+      throw Exception(data['message'] ?? 'Gagal membuat kategori');
+    }
+  }
+
   static Future<void> createProduct(Map<String, dynamic> product, File? imageFile) async {
     final token = await getToken();
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/produk'));
     
     request.headers['Authorization'] = 'Bearer $token';
     
-    // Add fields
+    // Ensure numeric fields are strings for Multipart
     product.forEach((key, value) {
-      request.fields[key] = value.toString();
+      if (value != null && value.toString().isNotEmpty) {
+        request.fields[key] = value.toString();
+      }
     });
 
-    // Add image
     if (imageFile != null) {
       request.files.add(await http.MultipartFile.fromPath(
         'foto', 
@@ -98,6 +112,18 @@ class ApiService {
     if (response.statusCode != 201) {
       final data = jsonDecode(response.body);
       throw Exception(data['message'] ?? 'Gagal membuat produk');
+    }
+  }
+
+  static Future<List<dynamic>> getTransactions({String? date}) async {
+    final headers = await getHeaders();
+    final url = date != null ? '$baseUrl/transaksi?date=$date' : '$baseUrl/transaksi';
+    final res = await http.get(Uri.parse(url), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat transaksi');
     }
   }
 

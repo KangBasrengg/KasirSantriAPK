@@ -6,10 +6,10 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _data;
   Map<String, dynamic>? _profitData;
   bool _isLoading = true;
@@ -19,10 +19,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    fetchData();
   }
 
-  Future<void> _fetchData() async {
+  Future<void> fetchData() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -64,7 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
             Text(_errorMessage ?? 'Gagal memuat data', textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _fetchData, child: const Text('Coba Lagi')),
+            ElevatedButton(onPressed: fetchData, child: const Text('Coba Lagi')),
           ],
         ),
       );
@@ -82,7 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final transaksiTerakhir = d['transaksi_terakhir'] as List? ?? [];
     
     return RefreshIndicator(
-      onRefresh: _fetchData,
+      onRefresh: fetchData,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [

@@ -3,11 +3,12 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 
 class PosScreen extends StatefulWidget {
+  const PosScreen({Key? key}) : super(key: key);
   @override
-  _PosScreenState createState() => _PosScreenState();
+  PosScreenState createState() => PosScreenState();
 }
 
-class _PosScreenState extends State<PosScreen> {
+class PosScreenState extends State<PosScreen> {
   List<dynamic> _products = [];
   List<Map<String, dynamic>> _cart = [];
   bool _isLoading = true;
@@ -18,10 +19,10 @@ class _PosScreenState extends State<PosScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    fetchProducts();
   }
 
-  Future<void> _fetchProducts() async {
+  Future<void> fetchProducts() async {
     setState(() => _isLoading = true);
     try {
       final data = await ApiService.getProducts(search: _searchQuery);
@@ -90,7 +91,7 @@ class _PosScreenState extends State<PosScreen> {
           cart: _cart,
           onSuccess: () {
             setState(() { _cart.clear(); });
-            _fetchProducts();
+            fetchProducts();
           },
         );
       }
@@ -126,7 +127,7 @@ class _PosScreenState extends State<PosScreen> {
                     ),
                     onChanged: (val) {
                       _searchQuery = val;
-                      _fetchProducts();
+                      fetchProducts();
                     },
                   ),
                 ),

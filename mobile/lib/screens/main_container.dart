@@ -17,13 +17,20 @@ class MainContainer extends StatefulWidget {
 
 class _MainContainerState extends State<MainContainer> {
   int _selectedIndex = 1; // Default to POS for quick access
+  
+  final GlobalKey<DashboardScreenState> _dashKey = GlobalKey();
+  final GlobalKey<PosScreenState> _posKey = GlobalKey();
+  final GlobalKey<ProductsScreenState> _productsKey = GlobalKey();
+  final GlobalKey<ReportsScreenState> _reportsKey = GlobalKey();
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    PosScreen(),
-    const ProductsScreen(),
-    const ReportsScreen(),
-  ];
+  void _onRefresh() {
+    switch (_selectedIndex) {
+      case 0: _dashKey.currentState?.fetchData(); break;
+      case 1: _posKey.currentState?.fetchProducts(); break;
+      case 2: _productsKey.currentState?.fetchProducts(); break;
+      case 3: _reportsKey.currentState?.fetchReport(); break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +46,11 @@ class _MainContainerState extends State<MainContainer> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _onRefresh,
+            tooltip: 'Refresh Data',
+          ),
           IconButton(
             icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode),
             onPressed: () => themeProvider.toggleTheme(),
@@ -58,7 +70,15 @@ class _MainContainerState extends State<MainContainer> {
           ),
         ],
       ),
-      body: _screens[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          DashboardScreen(key: _dashKey),
+          PosScreen(key: _posKey),
+          ProductsScreen(key: _productsKey),
+          ReportsScreen(key: _reportsKey),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),

@@ -1,17 +1,19 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({Key? key}) : super(key: key);
+  final Key? refreshKey;
+  const ProductsScreen({Key? key, this.refreshKey}) : super(key: key);
 
   @override
-  State<ProductsScreen> createState() => _ProductsScreenState();
+  State<ProductsScreen> createState() => ProductsScreenState();
 }
 
-class _ProductsScreenState extends State<ProductsScreen> {
+class ProductsScreenState extends State<ProductsScreen> {
   List<dynamic> _products = [];
   bool _isLoading = true;
   String _search = '';
@@ -20,10 +22,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    fetchProducts();
   }
 
-  Future<void> _fetchProducts() async {
+  Future<void> fetchProducts() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
@@ -49,7 +51,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       builder: (context) => ProductFormDialog(
         product: product,
         onSuccess: () {
-          _fetchProducts();
+          fetchProducts();
         },
       ),
     );
@@ -59,76 +61,79 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Cari produk...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Theme.of(context).cardTheme.color,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      body: RefreshIndicator(
+        onRefresh: fetchProducts,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Cari produk...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Theme.of(context).cardTheme.color,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+                onChanged: (val) {
+                  _search = val;
+                  fetchProducts();
+                },
               ),
-              onChanged: (val) {
-                _search = val;
-                _fetchProducts();
-              },
             ),
-          ),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _products.isEmpty
-                ? const Center(child: Text('Tidak ada produk ditemukan'))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _products.length,
-                    itemBuilder: (context, index) {
-                      final p = _products[index] as Map<String, dynamic>;
-                      final stok = int.tryParse(p['stok']?.toString() ?? '0') ?? 0;
-                      final stokMin = int.tryParse(p['stok_minimum']?.toString() ?? '5') ?? 5;
-                      final isKritis = stok <= stokMin;
-                      
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          onTap: () => _showProductForm(product: p),
-                          leading: Container(
-                            width: 50, height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
+            Expanded(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _products.isEmpty
+                  ? const Center(child: Text('Tidak ada produk ditemukan'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _products.length,
+                      itemBuilder: (context, index) {
+                        final p = _products[index] as Map<String, dynamic>;
+                        final stok = int.tryParse(p['stok']?.toString() ?? '0') ?? 0;
+                        final stokMin = int.tryParse(p['stok_minimum']?.toString() ?? '5') ?? 5;
+                        final isKritis = stok <= stokMin;
+                        
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            onTap: () => _showProductForm(product: p),
+                            leading: Container(
+                              width: 50, height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: (p['foto_url'] != null && p['foto_url'].toString().isNotEmpty)
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      p['foto_url'], 
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, color: Colors.blue),
+                                    ),
+                                  )
+                                : const Icon(Icons.inventory_2, color: Colors.blue),
                             ),
-                            child: (p['foto_url'] != null && p['foto_url'].toString().isNotEmpty)
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    p['foto_url'], 
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, color: Colors.blue),
-                                  ),
-                                )
-                              : const Icon(Icons.inventory_2, color: Colors.blue),
+                            title: Text(p['nama']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Stok: $stok ${p['satuan'] ?? 'pcs'}'),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(formatCurrency.format(num.tryParse(p['harga_jual']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                                if (isKritis)
+                                  const Text('Stok Tipis!', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
                           ),
-                          title: Text(p['nama']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Stok: $stok ${p['satuan'] ?? 'pcs'}'),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(formatCurrency.format(num.tryParse(p['harga_jual']?.toString() ?? '0') ?? 0), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                              if (isKritis)
-                                const Text('Stok Tipis!', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showProductForm(),
@@ -158,7 +163,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late TextEditingController _stokMinController;
   late TextEditingController _satuanController;
   
-  int? _selectedCategoryId;
+  dynamic _selectedCategoryId;
   List<dynamic> _categories = [];
   File? _imageFile;
   bool _isSaving = false;
@@ -172,10 +177,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _skuController = TextEditingController(text: p?['sku']?.toString() ?? '');
     _hargaBeliController = TextEditingController(text: p?['harga_beli']?.toString() ?? '');
     _hargaJualController = TextEditingController(text: p?['harga_jual']?.toString() ?? '');
-    _stokController = TextEditingController(text: p?['stok']?.toString() ?? '');
+    _stokController = TextEditingController(text: p?['stok']?.toString() ?? '0');
     _stokMinController = TextEditingController(text: p?['stok_minimum']?.toString() ?? '5');
     _satuanController = TextEditingController(text: p?['satuan']?.toString() ?? 'pcs');
-    _selectedCategoryId = p?['kategori_id'] != null ? int.tryParse(p!['kategori_id'].toString()) : null;
+    _selectedCategoryId = p?['kategori_id'];
     _fetchCategories();
   }
 
@@ -197,18 +202,43 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       if (mounted) {
         setState(() {
           _categories = res;
-          if (_selectedCategoryId != null) {
-            bool exists = _categories.any((cat) => int.tryParse(cat['id']?.toString() ?? '0') == _selectedCategoryId);
-            if (!exists) _selectedCategoryId = null;
-          }
           _isLoadingCats = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingCats = false);
-      }
+      if (mounted) setState(() => _isLoadingCats = false);
     }
+  }
+
+  void _addCategory() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tambah Kategori'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Nama Kategori'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+            onPressed: () async {
+              if (controller.text.isEmpty) return;
+              try {
+                await ApiService.createCategory(controller.text);
+                Navigator.pop(ctx);
+                _fetchCategories();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickImage() async {
@@ -217,6 +247,12 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     if (pickedFile != null) {
       setState(() => _imageFile = File(pickedFile.path));
     }
+  }
+
+  String _generateSKU() {
+    final rand = Random();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return List.generate(8, (index) => chars[rand.nextInt(chars.length)]).join();
   }
 
   @override
@@ -262,7 +298,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     TextFormField(
                       controller: _namaController,
                       decoration: const InputDecoration(labelText: 'Nama Produk *', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                      validator: (v) => v == null || v.isEmpty ? 'Nama wajib diisi' : null,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -270,7 +306,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                         Expanded(
                           child: TextFormField(
                             controller: _skuController,
-                            decoration: const InputDecoration(labelText: 'SKU', border: OutlineInputBorder()),
+                            decoration: InputDecoration(
+                              labelText: 'SKU', 
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: () => setState(() => _skuController.text = _generateSKU()),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -283,17 +326,28 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      value: _selectedCategoryId,
-                      decoration: const InputDecoration(labelText: 'Kategori', border: OutlineInputBorder()),
-                      items: _categories.map<DropdownMenuItem<int>>((cat) {
-                        final id = int.tryParse(cat['id']?.toString() ?? '0') ?? 0;
-                        return DropdownMenuItem<int>(
-                          value: id,
-                          child: Text(cat['nama']?.toString() ?? '-'),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedCategoryId = val),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<dynamic>(
+                            value: _selectedCategoryId,
+                            decoration: const InputDecoration(labelText: 'Kategori', border: OutlineInputBorder()),
+                            items: _categories.map<DropdownMenuItem<dynamic>>((cat) {
+                              return DropdownMenuItem<dynamic>(
+                                value: cat['id'],
+                                child: Text(cat['nama']?.toString() ?? '-'),
+                              );
+                            }).toList(),
+                            onChanged: (val) => setState(() => _selectedCategoryId = val),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: _addCategory,
+                          tooltip: 'Tambah Kategori',
+                        )
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -311,7 +365,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                             controller: _hargaJualController,
                             decoration: const InputDecoration(labelText: 'Harga Jual *', border: OutlineInputBorder(), prefixText: 'Rp '),
                             keyboardType: TextInputType.number,
-                            validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                            validator: (v) => v == null || v.isEmpty ? 'Harga jual wajib diisi' : null,
                           ),
                         ),
                       ],
@@ -356,11 +410,15 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
     setState(() => _isSaving = true);
     try {
+      // Auto generate SKU if empty
+      String sku = _skuController.text;
+      if (sku.isEmpty) sku = _generateSKU();
+
       final payload = {
         'nama': _namaController.text,
-        'sku': _skuController.text,
+        'sku': sku,
         'satuan': _satuanController.text,
-        'kategori_id': _selectedCategoryId ?? '',
+        'kategori_id': _selectedCategoryId?.toString() ?? '',
         'harga_beli': _hargaBeliController.text,
         'harga_jual': _hargaJualController.text,
         'stok': _stokController.text,
