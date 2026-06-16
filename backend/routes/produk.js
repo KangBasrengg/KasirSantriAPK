@@ -2,12 +2,41 @@ const express = require('express');
 const pool = require('../config/db');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { generateSKU, paginateQuery } = require('../utils/helpers');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 
+// Konfigurasi Multer untuk Upload Foto
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'produk-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Max 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) return cb(null, true);
+    cb(new Error('Hanya file gambar yang diperbolehkan!'));
+  }
+});
+
 /**
  * GET /api/produk
- * List semua produk dengan pagination, search, filter
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -34,14 +63,9 @@ router.get('/', authenticateToken, async (req, res) => {
       whereClause += ` AND p.stok <= p.stok_minimum`;
     }
 
-    // Count total
-    const countResult = await pool.query(
-      `SELECT COUNT(*) FROM products p ${whereClause}`,
-      params
-    );
+    const countResult = await pool.query(`SELECT COUNT(*) FROM products p ${whereClause}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Get data
     params.push(lim, offset);
     const result = await pool.query(
       `SELECT p.*, c.nama as kategori_nama 
@@ -53,9 +77,18 @@ router.get('/', authenticateToken, async (req, res) => {
       params
     );
 
+    // Format foto_url jika ada
+    const data = result.rows.map(row => {
+      if (row.foto_url && !row.foto_url.startsWith('http')) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        row.foto_url = `${baseUrl}/${row.foto_url}`;
+      }
+      return row;
+    });
+
     res.json({
       success: true,
-      data: result.rows,
+      data,
       pagination: {
         page: parseInt(page),
         limit: lim,
@@ -71,7 +104,6 @@ router.get('/', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/produk/categories
- * List semua kategori
  */
 router.get('/categories', authenticateToken, async (req, res) => {
   try {
@@ -84,39 +116,13 @@ router.get('/categories', authenticateToken, async (req, res) => {
 });
 
 /**
- * GET /api/produk/:id
- * Detail produk
- */
-router.get('/:id', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT p.*, c.nama as kategori_nama 
-       FROM products p 
-       LEFT JOIN categories c ON p.kategori_id = c.id 
-       WHERE p.id = $1`,
-      [req.params.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan.' });
-    }
-
-    res.json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    console.error('Get produk detail error:', err);
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
-  }
-});
-
-/**
  * POST /api/produk
- * Tambah produk baru
  */
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, upload.single('foto'), async (req, res) => {
   try {
     const {
       nama, sku, kategori_id, satuan, harga_beli, harga_jual,
-      stok, stok_minimum, foto_url, tanggal_masuk, exp_date
+      stok, stok_minimum, exp_date
     } = req.body;
 
     if (!nama || !harga_jual) {
@@ -127,15 +133,15 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     const productSku = sku || generateSKU();
+    const foto_url = req.file ? req.file.path.replace(/\\/g, '/') : (req.body.foto_url || null);
 
     const result = await pool.query(
-      `INSERT INTO products (sku, nama, kategori_id, satuan, harga_beli, harga_jual, stok, stok_minimum, foto_url, tanggal_masuk, exp_date) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+      `INSERT INTO products (sku, nama, kategori_id, satuan, harga_beli, harga_jual, stok, stok_minimum, foto_url, exp_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [productSku, nama, kategori_id || null, satuan || 'pcs', harga_beli || 0, harga_jual, stok || 0, stok_minimum || 5, foto_url || null, tanggal_masuk || new Date(), exp_date || null]
+      [productSku, nama, kategori_id || null, satuan || 'pcs', harga_beli || 0, harga_jual, stok || 0, stok_minimum || 5, foto_url, exp_date || null]
     );
 
-    // Log stok masuk awal
     if (stok && stok > 0) {
       await pool.query(
         `INSERT INTO stock_logs (produk_id, tipe, qty, ref_type, keterangan) 
@@ -160,21 +166,27 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 
 /**
  * PUT /api/produk/:id
- * Update produk
  */
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, upload.single('foto'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
       nama, sku, kategori_id, satuan, harga_beli, harga_jual,
-      stok, stok_minimum, foto_url, exp_date
+      stok, stok_minimum, exp_date
     } = req.body;
 
-    // Get old stock for logging
-    const oldProduct = await pool.query('SELECT stok FROM products WHERE id = $1', [id]);
+    const oldProduct = await pool.query('SELECT stok, foto_url FROM products WHERE id = $1', [id]);
     if (oldProduct.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Produk tidak ditemukan.' });
     }
+
+    let foto_url = oldProduct.rows[0].foto_url;
+    if (req.file) {
+      foto_url = req.file.path.replace(/\\/g, '/');
+    } else if (req.body.foto_url === null || req.body.foto_url === 'null') {
+      foto_url = null;
+    }
+
     const oldStok = oldProduct.rows[0].stok;
 
     const result = await pool.query(
@@ -192,10 +204,9 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
         updated_at = NOW()
        WHERE id = $11 
        RETURNING *`,
-      [nama, sku, kategori_id || null, satuan, harga_beli, harga_jual, stok, stok_minimum, foto_url || null, exp_date || null, id]
+      [nama, sku, kategori_id || null, satuan, harga_beli, harga_jual, stok, stok_minimum, foto_url, exp_date || null, id]
     );
 
-    // If stock was adjusted manually, log it
     const newStok = result.rows[0].stok;
     if (stok !== undefined && oldStok !== newStok) {
       const diff = newStok - oldStok;
@@ -219,7 +230,6 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
 /**
  * DELETE /api/produk/:id
- * Soft delete produk
  */
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -244,7 +254,6 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
 /**
  * POST /api/produk/categories
- * Tambah kategori baru
  */
 router.post('/categories', authenticateToken, requireAdmin, async (req, res) => {
   try {

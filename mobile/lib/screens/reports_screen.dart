@@ -47,11 +47,10 @@ class ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  void _showTransactionDetails(String dateLabel) {
-    // Attempt to parse date from label if it's harian
+  void _showTransactionList(String dateLabel) {
     String? filterDate;
     if (_periode == 'harian') {
-       filterDate = dateLabel; // Usually YYYY-MM-DD
+       filterDate = dateLabel; 
     }
 
     showModalBottomSheet(
@@ -151,7 +150,7 @@ class ReportsScreenState extends State<ReportsScreen> {
                     final row = l as Map<String, dynamic>;
                     return Card(
                       child: ListTile(
-                        onTap: () => _showTransactionDetails(row['periode']?.toString() ?? ''),
+                        onTap: () => _showTransactionList(row['periode']?.toString() ?? ''),
                         title: Text(row['periode']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text('${row['jumlah_transaksi'] ?? 0} transaksi'),
                         trailing: Row(
@@ -223,6 +222,15 @@ class _TransactionListSheetState extends State<TransactionListSheet> {
     }
   }
 
+  void _showDetail(int id) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TransactionDetailSheet(transactionId: id),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -257,9 +265,16 @@ class _TransactionListSheetState extends State<TransactionListSheet> {
                       final t = _transactions[i];
                       return Card(
                         child: ListTile(
+                          onTap: () => _showDetail(t['id']),
                           title: Text(t['nomor_transaksi'], style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold)),
                           subtitle: Text(DateFormat('HH:mm').format(DateTime.parse(t['waktu'])) + ' • ' + t['metode_bayar'].toString().toUpperCase()),
-                          trailing: Text(formatCurrency.format(num.parse(t['total'].toString())), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(formatCurrency.format(num.parse(t['total'].toString())), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                              const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -267,6 +282,147 @@ class _TransactionListSheetState extends State<TransactionListSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class TransactionDetailSheet extends StatefulWidget {
+  final int transactionId;
+  const TransactionDetailSheet({Key? key, required this.transactionId}) : super(key: key);
+
+  @override
+  State<TransactionDetailSheet> createState() => _TransactionDetailSheetState();
+}
+
+class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
+  bool _isLoading = true;
+  Map<String, dynamic>? _data;
+  final formatCurrency = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final res = await ApiService.getTransactionDetail(widget.transactionId);
+      if (mounted) {
+        setState(() {
+          _data = res;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : _data == null 
+          ? const Center(child: Text('Gagal memuat detail'))
+          : Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Detail Penjualan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('No. Transaksi', style: TextStyle(color: Colors.grey)),
+                          Text(_data!['nomor_transaksi'], style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Waktu', style: TextStyle(color: Colors.grey)),
+                          Text(DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(_data!['waktu']))),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Kasir', style: TextStyle(color: Colors.grey)),
+                          Text(_data!['kasir_nama'] ?? '-'),
+                        ],
+                      ),
+                      const Divider(height: 32),
+                      const Text('Daftar Item', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      ... (_data!['items'] as List).map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item['nama_produk'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text('${item['qty']} x ${formatCurrency.format(num.parse(item['harga_jual'].toString()))}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                            Text(formatCurrency.format(num.parse(item['subtotal'].toString())), style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      )).toList(),
+                      const Divider(height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(formatCurrency.format(num.parse(_data!['total'].toString())), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).primaryColor)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Bayar (${_data!['metode_bayar'].toString().toUpperCase()})', style: const TextStyle(color: Colors.grey)),
+                          Text(formatCurrency.format(num.parse(_data!['bayar'].toString()))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Kembalian', style: TextStyle(color: Colors.grey)),
+                          Text(formatCurrency.format(num.parse(_data!['kembalian'].toString()))),
+                        ],
+                      ),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

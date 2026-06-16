@@ -91,7 +91,6 @@ class ApiService {
     
     request.headers['Authorization'] = 'Bearer $token';
     
-    // Ensure numeric fields are strings for Multipart
     product.forEach((key, value) {
       if (value != null && value.toString().isNotEmpty) {
         request.fields[key] = value.toString();
@@ -115,18 +114,6 @@ class ApiService {
     }
   }
 
-  static Future<List<dynamic>> getTransactions({String? date}) async {
-    final headers = await getHeaders();
-    final url = date != null ? '$baseUrl/transaksi?date=$date' : '$baseUrl/transaksi';
-    final res = await http.get(Uri.parse(url), headers: headers);
-    final data = jsonDecode(res.body);
-    if (res.statusCode == 200) {
-      return data['data'];
-    } else {
-      throw Exception('Gagal memuat transaksi');
-    }
-  }
-
   static Future<void> updateProduct(int id, Map<String, dynamic> product, File? imageFile) async {
     final token = await getToken();
     var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/produk/$id'));
@@ -134,7 +121,9 @@ class ApiService {
     request.headers['Authorization'] = 'Bearer $token';
     
     product.forEach((key, value) {
-      request.fields[key] = value.toString();
+      if (value != null && value.toString().isNotEmpty) {
+        request.fields[key] = value.toString();
+      }
     });
 
     if (imageFile != null) {
@@ -181,6 +170,33 @@ class ApiService {
       return data['data'];
     } else {
       throw Exception(data['message'] ?? 'Gagal membuat transaksi');
+    }
+  }
+
+  static Future<List<dynamic>> getTransactions({String? date}) async {
+    final headers = await getHeaders();
+    String url = '$baseUrl/transaksi?limit=100';
+    if (date != null && date.isNotEmpty) {
+      url += '&tanggal_mulai=$date&tanggal_akhir=$date';
+    }
+      
+    final res = await http.get(Uri.parse(url), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat transaksi');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getTransactionDetail(int id) async {
+    final headers = await getHeaders();
+    final res = await http.get(Uri.parse('$baseUrl/transaksi/$id'), headers: headers);
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      return data['data'];
+    } else {
+      throw Exception('Gagal memuat detail transaksi');
     }
   }
 

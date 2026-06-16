@@ -70,6 +70,63 @@ class _MainContainerState extends State<MainContainer> {
           ),
         ],
       ),
+      drawer: Drawer(
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Theme.of(context).primaryColor),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/icon.png', width: 64, height: 64, color: Colors.white),
+                    const SizedBox(height: 12),
+                    const Text('TokoKas Mobile', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              selected: _selectedIndex == 0,
+              onTap: () { setState(() => _selectedIndex = 0); Navigator.pop(context); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_cart),
+              title: const Text('Kasir (POS)'),
+              selected: _selectedIndex == 1,
+              onTap: () { setState(() => _selectedIndex = 1); Navigator.pop(context); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.inventory),
+              title: const Text('Produk'),
+              selected: _selectedIndex == 2,
+              onTap: () { setState(() => _selectedIndex = 2); Navigator.pop(context); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Laporan'),
+              selected: _selectedIndex == 3,
+              onTap: () { setState(() => _selectedIndex = 3); Navigator.pop(context); },
+            ),
+            const Spacer(),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Text('© 2026 TokoKas', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Copyright by Muhammad Nuril', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  const Text('v1.9', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
       body: IndexedStack(
         index: _selectedIndex,
         children: [

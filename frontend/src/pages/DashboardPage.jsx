@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { getDashboard, getProfitReport } from '../api';
+import { getDashboard, getProfitReport, getTransaction } from '../api';
 import { formatRupiah, formatDateTime } from '../utils/format';
-import { TrendingUp, ShoppingCart, Package, AlertTriangle, DollarSign } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Package, AlertTriangle, DollarSign, X, Printer, Eye } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 
 export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [profit, setProfit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedTrx, setSelectedTrx] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -22,6 +23,77 @@ export default function DashboardPage() {
 
   const d = data || { hari_ini: { omzet: 0, jumlah_transaksi: 0 }, bulan_ini: { omzet: 0, jumlah_transaksi: 0 }, total_produk: 0, stok_kritis: 0, produk_terlaris: [], omzet_7_hari: [], transaksi_terakhir: [] };
   const p = profit || { hari_ini: { penjualan: 0, modal: 0, laba: 0 }, bulan_ini: { penjualan: 0, modal: 0, laba: 0 }, laba_7_hari: [] };
+
+  const handleViewDetail = async (id) => {
+    setSelectedTrx({ loading: true });
+    try {
+      const res = await getTransaction(id);
+      setSelectedTrx(res.data);
+    } catch (e) {
+      alert('Gagal memuat detail transaksi: ' + e.message);
+      setSelectedTrx(null);
+    }
+  };
+
+  const handlePrintReceipt = (trx) => {
+    const items = trx.items || [];
+    const now = new Date(trx.waktu || Date.now());
+    const tanggal = now.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const receiptHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Struk - ${trx.nomor_transaksi}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; width: 80mm; margin: 0 auto; padding: 8mm 4mm; font-size: 12px; color: #000; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 6px 0; }
+          .row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .item-name { margin: 4px 0 2px; font-weight: bold; }
+          .item-detail { display: flex; justify-content: space-between; color: #333; font-size: 11px; }
+          h2 { font-size: 16px; margin-bottom: 2px; }
+          .footer { margin-top: 12px; text-align: center; font-size: 11px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <h2>TokoKas</h2>
+          <p style="font-size:11px;color:#666;">Sistem POS Toko Pribadi</p>
+        </div>
+        <div class="divider"></div>
+        <div class="row"><span>No:</span><span class="bold">${trx.nomor_transaksi}</span></div>
+        <div class="row"><span>Waktu:</span><span>${tanggal}</span></div>
+        <div class="row"><span>Metode:</span><span style="text-transform:capitalize">${trx.metode_bayar}</span></div>
+        <div class="divider"></div>
+        ${items.map(item => `
+          <div class="item-name">${item.nama_produk}</div>
+          <div class="item-detail">
+            <span>${item.qty} x ${Number(item.harga_jual).toLocaleString('id-ID')}</span>
+            <span>${Number(item.subtotal).toLocaleString('id-ID')}</span>
+          </div>
+        `).join('')}
+        <div class="divider"></div>
+        <div class="row bold"><span>TOTAL</span><span>Rp ${Number(trx.total).toLocaleString('id-ID')}</span></div>
+        <div class="row"><span>Bayar</span><span>Rp ${Number(trx.bayar).toLocaleString('id-ID')}</span></div>
+        ${Number(trx.kembalian) > 0 ? `<div class="row"><span>Kembalian</span><span>Rp ${Number(trx.kembalian).toLocaleString('id-ID')}</span></div>` : ''}
+        <div class="divider"></div>
+        <div class="footer">
+          <p>Terima kasih!</p>
+          <p>Barang yang sudah dibeli</p>
+          <p>tidak dapat dikembalikan.</p>
+        </div>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=320,height=600');
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+  };
 
   return (
     <>
@@ -166,8 +238,10 @@ export default function DashboardPage() {
               <thead><tr><th>No. Transaksi</th><th>Kasir</th><th>Total</th><th>Metode</th><th>Waktu</th></tr></thead>
               <tbody>
                 {d.transaksi_terakhir.length > 0 ? d.transaksi_terakhir.map(t => (
-                  <tr key={t.id}>
-                    <td style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 13 }}>{t.nomor_transaksi}</td>
+                  <tr key={t.id} onClick={() => handleViewDetail(t.id)} style={{ cursor: 'pointer' }} title="Klik untuk lihat detail">
+                    <td style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Eye size={14} style={{ color: 'var(--primary)' }} /> {t.nomor_transaksi}
+                    </td>
                     <td>{t.kasir_nama}</td>
                     <td style={{ fontWeight: 600 }}>{formatRupiah(t.total)}</td>
                     <td><span className={`badge-status ${t.metode_bayar === 'tunai' ? 'success' : 'info'}`}>{t.metode_bayar}</span></td>
@@ -181,6 +255,56 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Transaction Detail Modal */}
+      {selectedTrx && (
+        <div className="modal-overlay" onClick={() => setSelectedTrx(null)} style={{ zIndex: 300 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+            {selectedTrx.loading ? (
+              <div style={{ padding: 48, textAlign: 'center' }}>Memuat detail...</div>
+            ) : (
+              <>
+                <div className="modal-header">
+                  <h3>Detail Transaksi</h3>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setSelectedTrx(null)}><X size={18} /></button>
+                </div>
+                <div className="modal-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16, fontSize: 13, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>No. Transaksi</span><br/><strong style={{ fontFamily: 'monospace' }}>{selectedTrx.nomor_transaksi}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Waktu</span><br/><strong>{formatDateTime(selectedTrx.waktu)}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Metode Bayar</span><br/><strong style={{ textTransform: 'capitalize' }}>{selectedTrx.metode_bayar}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Kasir</span><br/><strong>{selectedTrx.kasir_nama}</strong></div>
+                  </div>
+                  
+                  <div style={{ marginBottom: 8, fontWeight: 600 }}>Rincian Pembelian:</div>
+                  <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 16 }}>
+                    {(selectedTrx.items || []).map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{item.nama_produk}</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.qty} x {formatRupiah(item.harga_jual)}</div>
+                        </div>
+                        <div style={{ fontWeight: 600 }}>{formatRupiah(item.subtotal)}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, paddingTop: 8, borderTop: '2px solid var(--border)' }}>
+                    <span>Total</span>
+                    <span style={{ color: 'var(--primary)' }}>{formatRupiah(selectedTrx.total)}</span>
+                  </div>
+                </div>
+                <div className="modal-footer" style={{ display: 'flex', gap: 12 }}>
+                  <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setSelectedTrx(null)}>Tutup</button>
+                  <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => handlePrintReceipt(selectedTrx)}>
+                    <Printer size={16} /> Cetak/PDF
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
