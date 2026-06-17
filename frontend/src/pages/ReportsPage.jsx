@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSalesReport, getStockReport } from '../api';
 import { formatRupiah, formatDate, formatDateTime } from '../utils/format';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from 'recharts';
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('penjualan'); // penjualan, stok
@@ -14,9 +14,13 @@ export default function ReportsPage() {
   // Data Stok
   const [stockData, setStockData] = useState(null);
 
+  // Data Laba
+  const [profitData, setProfitData] = useState(null);
+  const [profitPeriode, setProfitPeriode] = useState('harian');
+
   useEffect(() => {
     fetchData();
-  }, [activeTab, periode]);
+  }, [activeTab, periode, profitPeriode]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -24,9 +28,12 @@ export default function ReportsPage() {
       if (activeTab === 'penjualan') {
         const res = await getSalesReport({ periode });
         setSalesData(res.data);
-      } else {
+      } else if (activeTab === 'stok') {
         const res = await getStockReport();
         setStockData(res.data);
+      } else if (activeTab === 'laba') {
+        const res = await getProfitReport({ periode: profitPeriode });
+        setProfitData(res.data);
       }
     } catch (e) {
       console.error(e);
@@ -59,6 +66,13 @@ export default function ReportsPage() {
             onClick={() => setActiveTab('stok')}
           >
             Laporan Stok
+          </button>
+          <button 
+            className={`btn btn-ghost ${activeTab === 'laba' ? 'active' : ''}`}
+            style={{ borderRadius: 0, borderBottom: activeTab === 'laba' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'laba' ? 'var(--primary)' : 'inherit' }}
+            onClick={() => setActiveTab('laba')}
+          >
+            Laporan Laba
           </button>
         </div>
 
@@ -174,6 +188,83 @@ export default function ReportsPage() {
                               {log.tipe === 'in' ? '+' : '-'}{log.qty}
                             </td>
                             <td style={{ fontSize: 13 }}>{log.keterangan}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'laba' && profitData && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', gap: 20 }}>
+                    <div className="card" style={{ padding: '16px 24px' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Total Laba Bersih</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#059669' }}>
+                        {formatRupiah(profitData.laporan.reduce((sum, item) => sum + parseFloat(item.laba), 0))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <select className="form-control" value={profitPeriode} onChange={e => setProfitPeriode(e.target.value)}>
+                      <option value="harian">Harian</option>
+                      <option value="mingguan">Mingguan</option>
+                      <option value="bulanan">Bulanan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="card" style={{ marginBottom: 24 }}>
+                  <div className="card-header"><h3>Grafik Laba</h3></div>
+                  <div className="card-body">
+                    {profitData.laporan.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={profitData.laporan.map(i => ({ ...i, laba: parseFloat(i.laba), total_penjualan: parseFloat(i.total_penjualan), total_modal: parseFloat(i.total_modal) })).reverse()}>
+                          <defs>
+                            <linearGradient id="labaGradientReport" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="penjualanGradientReport" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis dataKey="periode" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
+                          <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                          <Tooltip
+                            formatter={(v, name) => [formatRupiah(v), name === 'laba' ? 'Laba Bersih' : name === 'total_penjualan' ? 'Penjualan' : 'Modal']}
+                            contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)' }}
+                          />
+                          <Legend formatter={v => v === 'laba' ? 'Laba Bersih' : v === 'total_penjualan' ? 'Penjualan' : 'Modal'} />
+                          <Area type="monotone" dataKey="total_penjualan" stroke="#2563eb" fill="url(#penjualanGradientReport)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="laba" stroke="#059669" fill="url(#labaGradientReport)" strokeWidth={2.5} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="empty-state">Belum ada data laba</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="card-header"><h3>Tabel Data Laba</h3></div>
+                  <div className="table-container">
+                    <table>
+                      <thead><tr><th>Periode</th><th>Total Penjualan</th><th>Total Modal</th><th>Laba Bersih</th></tr></thead>
+                      <tbody>
+                        {profitData.laporan.map((row, i) => (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 600 }}>{row.periode}</td>
+                            <td>{formatRupiah(row.total_penjualan)}</td>
+                            <td>{formatRupiah(row.total_modal)}</td>
+                            <td style={{ fontWeight: 600, color: parseFloat(row.laba) >= 0 ? '#059669' : '#dc2626' }}>
+                              {formatRupiah(row.laba)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

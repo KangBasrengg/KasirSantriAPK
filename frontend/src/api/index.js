@@ -91,8 +91,10 @@ export const getTopProducts = (params = {}) => {
   return fetch(`${API_BASE}/laporan/produk-terlaris?${q}`, { headers: headers() }).then(handleResponse);
 };
 
-export const getProfitReport = () =>
-  fetch(`${API_BASE}/laporan/laba`, { headers: headers() }).then(handleResponse);
+export const getProfitReport = (params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return fetch(`${API_BASE}/laporan/laba?${q}`, { headers: headers() }).then(handleResponse);
+};
 
 export const updateProfile = (data) =>
   fetch(`${API_BASE}/auth/profile`, { method: 'PUT', headers: headers(), body: JSON.stringify(data) }).then(handleResponse);

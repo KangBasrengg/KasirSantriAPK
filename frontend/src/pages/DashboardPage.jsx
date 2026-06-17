@@ -113,14 +113,7 @@ export default function DashboardPage() {
               <div className="sub">{d.hari_ini.jumlah_transaksi} transaksi</div>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon green"><ShoppingCart size={24} /></div>
-            <div className="stat-info">
-              <h4>Omzet Bulan Ini</h4>
-              <div className="value">{formatRupiah(d.bulan_ini.omzet)}</div>
-              <div className="sub">{d.bulan_ini.jumlah_transaksi} transaksi</div>
-            </div>
-          </div>
+
           <div className="stat-card">
             <div className="stat-icon orange"><DollarSign size={24} /></div>
             <div className="stat-info">

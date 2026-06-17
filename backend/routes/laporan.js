@@ -166,22 +166,54 @@ router.get('/produk-terlaris', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/laporan/laba - Laporan laba (harga_jual - harga_beli) 7 hari terakhir
+// GET /api/laporan/laba - Laporan laba (harga_jual - harga_beli)
 router.get('/laba', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT 
-         t.waktu::date as tanggal,
-         COALESCE(SUM(ti.subtotal), 0) as total_penjualan,
-         COALESCE(SUM(p.harga_beli * ti.qty), 0) as total_modal,
-         COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as laba
-       FROM trx_items ti
-       JOIN transactions t ON ti.transaksi_id = t.id
-       JOIN products p ON ti.produk_id = p.id
-       WHERE t.waktu >= CURRENT_DATE - INTERVAL '7 days'
-       GROUP BY t.waktu::date
-       ORDER BY tanggal ASC`
-    );
+    const { periode } = req.query;
+
+    let result;
+    if (periode) {
+      let groupBy, dateFormat;
+      switch (periode) {
+        case 'bulanan':
+          groupBy = "DATE_TRUNC('month', t.waktu)";
+          dateFormat = "TO_CHAR(DATE_TRUNC('month', t.waktu), 'YYYY-MM')";
+          break;
+        case 'mingguan':
+          groupBy = "DATE_TRUNC('week', t.waktu)";
+          dateFormat = "TO_CHAR(DATE_TRUNC('week', t.waktu), 'YYYY-MM-DD')";
+          break;
+        default:
+          groupBy = "t.waktu::date";
+          dateFormat = "TO_CHAR(t.waktu::date, 'YYYY-MM-DD')";
+      }
+      result = await pool.query(
+        `SELECT 
+           ${dateFormat} as periode,
+           COALESCE(SUM(ti.subtotal), 0) as total_penjualan,
+           COALESCE(SUM(p.harga_beli * ti.qty), 0) as total_modal,
+           COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as laba
+         FROM trx_items ti
+         JOIN transactions t ON ti.transaksi_id = t.id
+         JOIN products p ON ti.produk_id = p.id
+         GROUP BY ${groupBy}
+         ORDER BY ${groupBy} DESC`
+      );
+    } else {
+      result = await pool.query(
+        `SELECT 
+           t.waktu::date as tanggal,
+           COALESCE(SUM(ti.subtotal), 0) as total_penjualan,
+           COALESCE(SUM(p.harga_beli * ti.qty), 0) as total_modal,
+           COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as laba
+         FROM trx_items ti
+         JOIN transactions t ON ti.transaksi_id = t.id
+         JOIN products p ON ti.produk_id = p.id
+         WHERE t.waktu >= CURRENT_DATE - INTERVAL '7 days'
+         GROUP BY t.waktu::date
+         ORDER BY tanggal ASC`
+      );
+    }
 
     // Laba hari ini
     const today = new Date().toISOString().slice(0, 10);
@@ -212,7 +244,8 @@ router.get('/laba', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       data: {
-        laba_7_hari: result.rows,
+        laporan: periode ? result.rows : undefined,
+        laba_7_hari: !periode ? result.rows : undefined,
         hari_ini: {
           penjualan: parseFloat(labaHariIni.rows[0].total_penjualan),
           modal: parseFloat(labaHariIni.rows[0].total_modal),
