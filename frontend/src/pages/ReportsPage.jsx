@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getSalesReport, getStockReport } from '../api';
+import { getSalesReport, getStockReport, getProfitReport, getTransactions, getTransaction } from '../api';
+import { Eye, X } from 'lucide-react';
 import { formatRupiah, formatDate, formatDateTime } from '../utils/format';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from 'recharts';
 
@@ -17,6 +18,13 @@ export default function ReportsPage() {
   // Data Laba
   const [profitData, setProfitData] = useState(null);
   const [profitPeriode, setProfitPeriode] = useState('harian');
+
+  // Modals Data
+  const [showTxModal, setShowTxModal] = useState(false);
+  const [txModalTitle, setTxModalTitle] = useState('');
+  const [periodTxList, setPeriodTxList] = useState([]);
+  const [loadingTx, setLoadingTx] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -39,6 +47,48 @@ export default function ReportsPage() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleViewPeriodTx = async (rowPeriode) => {
+    let tanggal_mulai = rowPeriode;
+    let tanggal_akhir = rowPeriode;
+
+    if (periode === 'bulanan') {
+      tanggal_mulai = `${rowPeriode}-01`;
+      const [y, m] = rowPeriode.split('-');
+      const lastDay = new Date(y, m, 0).getDate();
+      tanggal_akhir = `${rowPeriode}-${lastDay}`;
+    } else if (periode === 'mingguan') {
+      const start = new Date(rowPeriode);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      tanggal_mulai = rowPeriode;
+      tanggal_akhir = end.toISOString().slice(0, 10);
+    }
+
+    setTxModalTitle(`Transaksi Periode ${rowPeriode}`);
+    setShowTxModal(true);
+    setLoadingTx(true);
+    try {
+      const res = await getTransactions({ tanggal_mulai, tanggal_akhir, limit: 200 });
+      setPeriodTxList(res.data);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memuat transaksi');
+    } finally {
+      setLoadingTx(false);
+    }
+  };
+
+  const handleViewReceipt = async (id) => {
+    setSelectedReceipt({ loading: true });
+    try {
+      const res = await getTransaction(id);
+      setSelectedReceipt(res.data);
+    } catch (e) {
+      alert('Gagal memuat detail transaksi');
+      setSelectedReceipt(null);
     }
   };
 
@@ -128,8 +178,8 @@ export default function ReportsPage() {
                       <thead><tr><th>Periode</th><th>Jml Transaksi</th><th>Omzet</th></tr></thead>
                       <tbody>
                         {salesData.laporan.map((row, i) => (
-                          <tr key={i}>
-                            <td style={{ fontWeight: 600 }}>{row.periode}</td>
+                          <tr key={i} onClick={() => handleViewPeriodTx(row.periode)} style={{ cursor: 'pointer' }} title="Klik untuk lihat transaksi">
+                            <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Eye size={14} color="var(--primary)" /> {row.periode}</td>
                             <td>{row.jumlah_transaksi}</td>
                             <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{formatRupiah(row.total_penjualan)}</td>
                           </tr>
@@ -258,8 +308,8 @@ export default function ReportsPage() {
                       <thead><tr><th>Periode</th><th>Total Penjualan</th><th>Total Modal</th><th>Laba Bersih</th></tr></thead>
                       <tbody>
                         {profitData.laporan.map((row, i) => (
-                          <tr key={i}>
-                            <td style={{ fontWeight: 600 }}>{row.periode}</td>
+                          <tr key={i} onClick={() => handleViewPeriodTx(row.periode)} style={{ cursor: 'pointer' }} title="Klik untuk lihat transaksi">
+                            <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Eye size={14} color="var(--primary)" /> {row.periode}</td>
                             <td>{formatRupiah(row.total_penjualan)}</td>
                             <td>{formatRupiah(row.total_modal)}</td>
                             <td style={{ fontWeight: 600, color: parseFloat(row.laba) >= 0 ? '#059669' : '#dc2626' }}>
@@ -276,6 +326,87 @@ export default function ReportsPage() {
           </>
         )}
       </div>
+
+      {/* Modal Daftar Transaksi Periode */}
+      {showTxModal && (
+        <div className="modal-overlay" onClick={() => setShowTxModal(false)} style={{ zIndex: 200 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, width: '90%' }}>
+            <div className="modal-header">
+              <h3>{txModalTitle}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowTxModal(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              {loadingTx ? (
+                <div style={{ textAlign: 'center', padding: 24 }}>Memuat transaksi...</div>
+              ) : (
+                <div className="table-container" style={{ maxHeight: 400, margin: 0 }}>
+                  <table>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}><tr><th>No. Transaksi</th><th>Waktu</th><th>Total</th><th>Kasir</th></tr></thead>
+                    <tbody>
+                      {periodTxList.length > 0 ? periodTxList.map(t => (
+                        <tr key={t.id} onClick={() => handleViewReceipt(t.id)} style={{ cursor: 'pointer' }} title="Lihat struk">
+                          <td style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Eye size={14} style={{ color: 'var(--primary)' }} /> {t.nomor_transaksi}
+                          </td>
+                          <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatDateTime(t.waktu)}</td>
+                          <td style={{ fontWeight: 600 }}>{formatRupiah(t.total)}</td>
+                          <td>{t.kasir_nama}</td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>Tidak ada transaksi</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detail Transaksi (Struk) */}
+      {selectedReceipt && (
+        <div className="modal-overlay" onClick={() => setSelectedReceipt(null)} style={{ zIndex: 300 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+            {selectedReceipt.loading ? (
+              <div style={{ padding: 48, textAlign: 'center' }}>Memuat detail...</div>
+            ) : (
+              <>
+                <div className="modal-header">
+                  <h3>Detail Transaksi</h3>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setSelectedReceipt(null)}><X size={18} /></button>
+                </div>
+                <div className="modal-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16, fontSize: 13, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>No. Transaksi</span><br/><strong style={{ fontFamily: 'monospace' }}>{selectedReceipt.nomor_transaksi}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Waktu</span><br/><strong>{formatDateTime(selectedReceipt.waktu)}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Metode Bayar</span><br/><strong style={{ textTransform: 'capitalize' }}>{selectedReceipt.metode_bayar}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Kasir</span><br/><strong>{selectedReceipt.kasir_nama}</strong></div>
+                  </div>
+                  
+                  <div style={{ marginBottom: 8, fontWeight: 600 }}>Rincian Pembelian:</div>
+                  <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 16 }}>
+                    {(selectedReceipt.items || []).map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{item.nama_produk}</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.qty} x {formatRupiah(item.harga_jual)}</div>
+                        </div>
+                        <div style={{ fontWeight: 600 }}>{formatRupiah(item.subtotal)}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, paddingTop: 8, borderTop: '2px solid var(--border)' }}>
+                    <span>Total</span>
+                    <span style={{ color: 'var(--primary)' }}>{formatRupiah(selectedReceipt.total)}</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
