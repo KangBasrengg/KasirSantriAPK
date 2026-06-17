@@ -30,7 +30,7 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="logo-section">
           <div className="logo-icon">
-            <img src="/icon.png" alt="TokoKas Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.6)' }} />
+            <img src="/icon.png" alt="TokoKas Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h2>TokoKas</h2>
           <p className="tagline">Sistem POS Toko Pribadi</p>

@@ -102,7 +102,7 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <div className="logo"><img src="/icon.png" alt="TokoKas Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.8)' }} /></div>
+          <div className="logo"><img src="/icon.png" alt="TokoKas Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
           <h1>TokoKas</h1>
           <button 
             style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#fff', display: 'var(--mobile-only, none)' }}
