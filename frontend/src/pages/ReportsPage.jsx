@@ -254,7 +254,7 @@ export default function ReportsPage() {
                     <div className="card" style={{ padding: '16px 24px' }}>
                       <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Total Laba Bersih</div>
                       <div style={{ fontSize: 24, fontWeight: 800, color: '#059669' }}>
-                        {formatRupiah(profitData.laporan.reduce((sum, item) => sum + parseFloat(item.laba), 0))}
+                        {formatRupiah((profitData.laporan || profitData.laba_7_hari || []).reduce((sum, item) => sum + parseFloat(item.laba || 0), 0))}
                       </div>
                     </div>
                   </div>
@@ -270,9 +270,9 @@ export default function ReportsPage() {
                 <div className="card" style={{ marginBottom: 24 }}>
                   <div className="card-header"><h3>Grafik Laba</h3></div>
                   <div className="card-body">
-                    {profitData.laporan.length > 0 ? (
+                    {(profitData.laporan || profitData.laba_7_hari || []).length > 0 ? (
                       <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={profitData.laporan.map(i => ({ ...i, laba: parseFloat(i.laba), total_penjualan: parseFloat(i.total_penjualan), total_modal: parseFloat(i.total_modal) })).reverse()}>
+                        <AreaChart data={(profitData.laporan || profitData.laba_7_hari || []).map(i => ({ ...i, laba: parseFloat(i.laba || 0), total_penjualan: parseFloat(i.total_penjualan || 0), total_modal: parseFloat(i.total_modal || 0) })).reverse()}>
                           <defs>
                             <linearGradient id="labaGradientReport" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor="#059669" stopOpacity={0.3} />
@@ -307,9 +307,9 @@ export default function ReportsPage() {
                     <table>
                       <thead><tr><th>Periode</th><th>Total Penjualan</th><th>Total Modal</th><th>Laba Bersih</th></tr></thead>
                       <tbody>
-                        {profitData.laporan.map((row, i) => (
-                          <tr key={i} onClick={() => handleViewPeriodTx(row.periode)} style={{ cursor: 'pointer' }} title="Klik untuk lihat transaksi">
-                            <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Eye size={14} color="var(--primary)" /> {row.periode}</td>
+                        {(profitData.laporan || profitData.laba_7_hari || []).map((row, i) => (
+                          <tr key={i} onClick={() => handleViewPeriodTx(row.periode || row.tanggal)} style={{ cursor: 'pointer' }} title="Klik untuk lihat transaksi">
+                            <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Eye size={14} color="var(--primary)" /> {row.periode || row.tanggal}</td>
                             <td>{formatRupiah(row.total_penjualan)}</td>
                             <td>{formatRupiah(row.total_modal)}</td>
                             <td style={{ fontWeight: 600, color: parseFloat(row.laba) >= 0 ? '#059669' : '#dc2626' }}>
