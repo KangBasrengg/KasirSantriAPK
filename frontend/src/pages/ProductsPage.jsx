@@ -20,6 +20,82 @@ export default function ProductsPage() {
   const [newCatName, setNewCatName] = useState('');
   const [savingCat, setSavingCat] = useState(false);
 
+  // Import CSV State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleDownloadTemplate = () => {
+    const csvContent = "NAMA_PRODUK,HARGA_BELI,HARGA_JUAL,STOK,STOK_MINIMUM,SATUAN\nContoh Produk,10000,15000,50,5,pcs";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "template_import_produk.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = async (e) => {
+    e.preventDefault();
+    if (!importFile) return alert("Pilih file CSV terlebih dahulu.");
+    setImporting(true);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target.result;
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) {
+        alert("File kosong atau format salah.");
+        setImporting(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (cols.length >= 4) { // Minumum NAMA, BELI, JUAL, STOK
+          const payload = {
+            nama: cols[0],
+            sku: '', // Akan digenerate otomatis oleh backend
+            harga_beli: parseFloat(cols[1]) || 0,
+            harga_jual: parseFloat(cols[2]) || 0,
+            stok: parseInt(cols[3]) || 0,
+            stok_minimum: parseInt(cols[4]) || 5,
+            satuan: cols[5] || 'pcs',
+            kategori_id: ''
+          };
+
+          if (!payload.nama || !payload.harga_jual) {
+            errorCount++;
+            continue;
+          }
+
+          try {
+            await createProduct(payload);
+            successCount++;
+          } catch (err) {
+            errorCount++;
+          }
+        }
+      }
+
+      alert(`Import selesai. Berhasil: ${successCount}, Gagal/Dilewati: ${errorCount}`);
+      setImporting(false);
+      setShowImportModal(false);
+      setImportFile(null);
+      fetchProducts(1);
+    };
+    reader.onerror = () => {
+      alert("Gagal membaca file.");
+      setImporting(false);
+    };
+    reader.readAsText(importFile);
+  };
+
   const fetchProducts = async (page = 1) => {
     try {
       setLoading(true);
@@ -79,7 +155,14 @@ export default function ProductsPage() {
     <>
       <div className="page-header">
         <div><h2>Manajemen Produk</h2><p className="subtitle">{pagination.total || 0} produk terdaftar</p></div>
-        <button className="btn btn-primary" onClick={openAdd}><Plus size={18} /> Tambah Produk</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline" onClick={() => setShowImportModal(true)}>
+            Import CSV
+          </button>
+          <button className="btn btn-primary" onClick={openAdd}>
+            <Plus size={18} /> Tambah Produk
+          </button>
+        </div>
       </div>
       <div className="page-body">
         <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
@@ -195,6 +278,38 @@ export default function ProductsPage() {
                 {savingCat ? 'Menyimpan...' : 'Simpan Kategori'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import CSV Modal */}
+      {showImportModal && (
+        <div className="modal-overlay" style={{ zIndex: 300 }} onClick={() => setShowImportModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>Import Data Produk (CSV)</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowImportModal(false)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleImportCSV}>
+              <div className="modal-body">
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                  Gunakan fitur ini untuk input barang massal. Pastikan Anda menggunakan file berformat <b>.csv</b> (dapat di-save dari Excel).
+                </p>
+                <button type="button" className="btn btn-outline" style={{ width: '100%', marginBottom: 16 }} onClick={handleDownloadTemplate}>
+                  Download Template CSV
+                </button>
+                <div className="form-group">
+                  <label>Pilih File CSV *</label>
+                  <input type="file" className="form-control" accept=".csv" onChange={(e) => setImportFile(e.target.files[0])} required style={{ padding: '8px' }} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setShowImportModal(false)}>Batal</button>
+                <button type="submit" className="btn btn-primary" disabled={importing || !importFile}>
+                  {importing ? 'Memproses...' : 'Mulai Import'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
