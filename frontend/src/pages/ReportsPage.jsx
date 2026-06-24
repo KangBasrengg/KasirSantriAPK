@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { getSalesReport, getStockReport, getProfitReport, getTransactions, getTransaction } from '../api';
-import { Eye, X } from 'lucide-react';
+import { Eye, X, Download } from 'lucide-react';
 import { formatRupiah, formatDate, formatDateTime } from '../utils/format';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from 'recharts';
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('penjualan'); // penjualan, stok
   const [loading, setLoading] = useState(true);
-  
+
   // Data Penjualan
   const [salesData, setSalesData] = useState(null);
   const [periode, setPeriode] = useState('harian'); // harian, mingguan, bulanan
-  
+
   // Data Stok
   const [stockData, setStockData] = useState(null);
 
@@ -54,12 +54,14 @@ export default function ReportsPage() {
     let tanggal_mulai = rowPeriode;
     let tanggal_akhir = rowPeriode;
 
-    if (periode === 'bulanan') {
+    const currentPeriode = activeTab === 'laba' ? profitPeriode : periode;
+
+    if (currentPeriode === 'bulanan') {
       tanggal_mulai = `${rowPeriode}-01`;
       const [y, m] = rowPeriode.split('-');
       const lastDay = new Date(y, m, 0).getDate();
       tanggal_akhir = `${rowPeriode}-${lastDay}`;
-    } else if (periode === 'mingguan') {
+    } else if (currentPeriode === 'mingguan') {
       const start = new Date(rowPeriode);
       const end = new Date(start);
       end.setDate(end.getDate() + 6);
@@ -92,32 +94,80 @@ export default function ReportsPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    let csvContent = "";
+    let filename = "laporan.csv";
+    const escape = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
+
+    if (activeTab === 'penjualan' && salesData) {
+      filename = `Rekap_Penjualan_${periode}.csv`;
+      csvContent += "Periode,Jumlah Transaksi,Total Omzet\n";
+      salesData.laporan.forEach(row => {
+        csvContent += `${escape(row.periode)},${escape(row.jumlah_transaksi)},${escape(row.total_penjualan)}\n`;
+      });
+    } else if (activeTab === 'stok' && stockData) {
+      filename = `Rekap_Stok_Barang.csv`;
+      csvContent += "SKU,Nama Produk,Kategori,Stok,Status\n";
+      stockData.produk.forEach(p => {
+        csvContent += `${escape(p.sku || '-')},${escape(p.nama)},${escape(p.kategori || '-')},${escape(p.stok)},${escape(p.is_kritis ? 'Kritis' : 'Aman')}\n`;
+      });
+    } else if (activeTab === 'laba' && profitData) {
+      filename = `Rekap_Laba_${profitPeriode}.csv`;
+      csvContent += "Periode,Total Penjualan,Total Modal,Laba Bersih\n";
+      const rows = profitData.laporan || profitData.laba_7_hari || [];
+      rows.forEach(row => {
+        csvContent += `${escape(row.periode || row.tanggal)},${escape(row.total_penjualan)},${escape(row.total_modal)},${escape(row.laba)}\n`;
+      });
+    } else {
+      return;
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>Laporan & Analitik</h2>
           <p className="subtitle">Pantau performa penjualan dan stok barang</p>
         </div>
+        <button 
+          className="btn btn-success" 
+          style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, fontWeight: 600 }}
+          onClick={handleExportCSV}
+          disabled={loading}
+          title="Download data laporan dalam format CSV"
+        >
+          <Download size={18} />
+          Export CSV
+        </button>
       </div>
-      
+
       <div className="page-body">
         <div style={{ display: 'flex', gap: 16, marginBottom: 24, borderBottom: '1px solid var(--border)' }}>
-          <button 
+          <button
             className={`btn btn-ghost ${activeTab === 'penjualan' ? 'active' : ''}`}
             style={{ borderRadius: 0, borderBottom: activeTab === 'penjualan' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'penjualan' ? 'var(--primary)' : 'inherit' }}
             onClick={() => setActiveTab('penjualan')}
           >
             Laporan Penjualan
           </button>
-          <button 
+          <button
             className={`btn btn-ghost ${activeTab === 'stok' ? 'active' : ''}`}
             style={{ borderRadius: 0, borderBottom: activeTab === 'stok' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'stok' ? 'var(--primary)' : 'inherit' }}
             onClick={() => setActiveTab('stok')}
           >
             Laporan Stok
           </button>
-          <button 
+          <button
             className={`btn btn-ghost ${activeTab === 'laba' ? 'active' : ''}`}
             style={{ borderRadius: 0, borderBottom: activeTab === 'laba' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'laba' ? 'var(--primary)' : 'inherit' }}
             onClick={() => setActiveTab('laba')}
@@ -160,7 +210,7 @@ export default function ReportsPage() {
                         <BarChart data={salesData.laporan.map(i => ({ ...i, total_penjualan: parseFloat(i.total_penjualan) })).reverse()}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                           <XAxis dataKey="periode" tick={{ fontSize: 12 }} />
-                          <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                          <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                           <Tooltip formatter={v => formatRupiah(v)} />
                           <Bar dataKey="total_penjualan" name="Omzet" fill="#2563eb" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -378,12 +428,12 @@ export default function ReportsPage() {
                 </div>
                 <div className="modal-body">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16, fontSize: 13, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
-                    <div><span style={{ color: 'var(--text-secondary)' }}>No. Transaksi</span><br/><strong style={{ fontFamily: 'monospace' }}>{selectedReceipt.nomor_transaksi}</strong></div>
-                    <div><span style={{ color: 'var(--text-secondary)' }}>Waktu</span><br/><strong>{formatDateTime(selectedReceipt.waktu)}</strong></div>
-                    <div><span style={{ color: 'var(--text-secondary)' }}>Metode Bayar</span><br/><strong style={{ textTransform: 'capitalize' }}>{selectedReceipt.metode_bayar}</strong></div>
-                    <div><span style={{ color: 'var(--text-secondary)' }}>Kasir</span><br/><strong>{selectedReceipt.kasir_nama}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>No. Transaksi</span><br /><strong style={{ fontFamily: 'monospace' }}>{selectedReceipt.nomor_transaksi}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Waktu</span><br /><strong>{formatDateTime(selectedReceipt.waktu)}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Metode Bayar</span><br /><strong style={{ textTransform: 'capitalize' }}>{selectedReceipt.metode_bayar}</strong></div>
+                    <div><span style={{ color: 'var(--text-secondary)' }}>Kasir</span><br /><strong>{selectedReceipt.kasir_nama}</strong></div>
                   </div>
-                  
+
                   <div style={{ marginBottom: 8, fontWeight: 600 }}>Rincian Pembelian:</div>
                   <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 16 }}>
                     {(selectedReceipt.items || []).map((item, idx) => (
