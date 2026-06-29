@@ -107,9 +107,53 @@ router.get('/penjualan', authenticateToken, requireAdmin, async (req, res) => {
       params
     );
 
+    let summaryWhere = '';
+    if (periode === 'bulanan') {
+      summaryWhere = "DATE_TRUNC('month', t.waktu) = DATE_TRUNC('month', CURRENT_DATE)";
+    } else if (periode === 'mingguan') {
+      summaryWhere = "DATE_TRUNC('week', t.waktu) = DATE_TRUNC('week', CURRENT_DATE)";
+    } else { // harian
+      summaryWhere = "t.waktu::date = CURRENT_DATE";
+    }
+
+    const ringkasanPeriode = await pool.query(
+      `SELECT 
+         COUNT(DISTINCT t.id) as total_transaksi,
+         COALESCE(SUM(ti.subtotal), 0) as total_omzet,
+         COALESCE(SUM(ti.subtotal) - SUM(p.harga_beli * ti.qty), 0) as total_laba
+       FROM transactions t
+       LEFT JOIN trx_items ti ON t.id = ti.transaksi_id
+       LEFT JOIN products p ON ti.produk_id = p.id
+       WHERE ${summaryWhere}`
+    );
+
+    const terlarisPeriode = await pool.query(
+      `SELECT ti.nama_produk, SUM(ti.qty) as total_terjual
+       FROM transactions t
+       JOIN trx_items ti ON t.id = ti.transaksi_id
+       WHERE ${summaryWhere}
+       GROUP BY ti.nama_produk
+       ORDER BY total_terjual DESC
+       LIMIT 1`
+    );
+
+    const stokKritis = await pool.query(
+      `SELECT COUNT(*) as jumlah FROM products WHERE stok <= stok_minimum AND is_active = true`
+    );
+
     res.json({
       success: true,
-      data: { laporan: result.rows, ringkasan: totalResult.rows[0] }
+      data: { 
+        laporan: result.rows, 
+        ringkasan: totalResult.rows[0],
+        ringkasan_periode: {
+          omzet: ringkasanPeriode.rows[0].total_omzet,
+          laba: ringkasanPeriode.rows[0].total_laba,
+          transaksi: ringkasanPeriode.rows[0].total_transaksi,
+          terlaris: terlarisPeriode.rows.length > 0 ? terlarisPeriode.rows[0].nama_produk : '-',
+          stok_kritis: stokKritis.rows[0].jumlah
+        }
+      }
     });
   } catch (err) {
     console.error('Laporan penjualan error:', err);

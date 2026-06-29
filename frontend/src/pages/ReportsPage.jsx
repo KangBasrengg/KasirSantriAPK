@@ -182,23 +182,33 @@ export default function ReportsPage() {
           <>
             {activeTab === 'penjualan' && salesData && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                  <div style={{ display: 'flex', gap: 20 }}>
-                    <div className="card" style={{ padding: '16px 24px' }}>
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Total Omzet</div>
-                      <div style={{ fontSize: 24, fontWeight: 800 }}>{formatRupiah(salesData.ringkasan.total_omzet)}</div>
-                    </div>
-                    <div className="card" style={{ padding: '16px 24px' }}>
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Total Transaksi</div>
-                      <div style={{ fontSize: 24, fontWeight: 800 }}>{salesData.ringkasan.total_transaksi}</div>
-                    </div>
-                  </div>
-                  <div>
-                    <select className="form-control" value={periode} onChange={e => setPeriode(e.target.value)}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: 18 }}>Ringkasan {periode === 'harian' ? 'Hari Ini' : periode === 'mingguan' ? 'Minggu Ini' : 'Bulan Ini'}</h3>
+                    <select className="form-control" style={{ width: 150 }} value={periode} onChange={e => setPeriode(e.target.value)}>
                       <option value="harian">Harian</option>
                       <option value="mingguan">Mingguan</option>
                       <option value="bulanan">Bulanan</option>
                     </select>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                    <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid var(--primary)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Omzet</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{formatRupiah(salesData.ringkasan_periode?.omzet || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #059669' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Laba Bersih</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#059669' }}>{formatRupiah(salesData.ringkasan_periode?.laba || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #d97706' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Barang Terlaris</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{salesData.ringkasan_periode?.terlaris || '-'}</div>
+                    </div>
+                    <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #dc2626' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Stok Kritis</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#dc2626' }}>{salesData.ringkasan_periode?.stok_kritis || 0} <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)' }}>Item</span></div>
+                    </div>
                   </div>
                 </div>
 
