@@ -117,25 +117,41 @@ class ReportsScreenState extends State<ReportsScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const Text('Total Omzet'),
-                        Text(formatCurrency.format(num.tryParse(_salesData!['ringkasan']?['total_omzet']?.toString() ?? '0') ?? 0), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        const Divider(),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Total Transaksi'),
-                            Text('${_salesData!['ringkasan']?['total_transaksi'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ],
+                if (_salesData!['ringkasan_periode'] != null)
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.5,
+                    children: [
+                      _buildSummaryCard('Omzet', formatCurrency.format(num.tryParse(_salesData!['ringkasan_periode']['omzet']?.toString() ?? '0') ?? 0), Colors.blue),
+                      _buildSummaryCard('Laba Bersih', formatCurrency.format(num.tryParse(_salesData!['ringkasan_periode']['laba']?.toString() ?? '0') ?? 0), Colors.green),
+                      _buildSummaryCard('Barang Terlaris', _salesData!['ringkasan_periode']['terlaris']?.toString() ?? '-', Colors.orange, isText: true),
+                      _buildSummaryCard('Stok Kritis', '${_salesData!['ringkasan_periode']['stok_kritis'] ?? 0} Item', Colors.red),
+                    ],
+                  )
+                else
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          const Text('Total Omzet'),
+                          Text(formatCurrency.format(num.tryParse(_salesData!['ringkasan']?['total_omzet']?.toString() ?? '0') ?? 0), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Transaksi'),
+                              Text('${_salesData!['ringkasan']?['total_transaksi'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -185,6 +201,39 @@ class ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value, Color color, {bool isText = false}) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: isText ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

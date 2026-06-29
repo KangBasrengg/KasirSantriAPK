@@ -8,7 +8,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterCat, setFilterCat] = useState('');
+  const [showKritis, setShowKritis] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ nama: '', sku: '', kategori_id: '', satuan: 'pcs', harga_beli: '', harga_jual: '', stok: '', stok_minimum: '5' });
@@ -101,7 +101,7 @@ export default function ProductsPage() {
       setLoading(true);
       const params = { page, limit: 20 };
       if (search) params.search = search;
-      if (filterCat) params.kategori_id = filterCat;
+      if (showKritis) params.stok_kritis = true;
       const res = await getProducts(params);
       setProducts(res.data);
       setPagination(res.pagination);
@@ -111,7 +111,7 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); }, []);
   useEffect(() => { getCategories().then(r => setCategories(r.data)).catch(console.error); }, []);
-  useEffect(() => { const t = setTimeout(() => fetchProducts(), 300); return () => clearTimeout(t); }, [search, filterCat]);
+  useEffect(() => { const t = setTimeout(() => fetchProducts(1), 300); return () => clearTimeout(t); }, [search, showKritis]);
 
   const openAdd = () => { setEditItem(null); setForm({ nama: '', sku: '', kategori_id: '', satuan: 'pcs', harga_beli: '', harga_jual: '', stok: '', stok_minimum: '5' }); setShowModal(true); };
   const openEdit = (p) => { setEditItem(p); setForm({ nama: p.nama, sku: p.sku || '', kategori_id: p.kategori_id || '', satuan: p.satuan, harga_beli: p.harga_beli || '', harga_jual: p.harga_jual, stok: p.stok, stok_minimum: p.stok_minimum }); setShowModal(true); };
@@ -170,10 +170,13 @@ export default function ProductsPage() {
             <Search size={18} className="search-icon" />
             <input placeholder="Cari nama atau SKU..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <select className="form-control" style={{ width: 200 }} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
-            <option value="">Semua Kategori</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
-          </select>
+          <button 
+            className={`btn ${showKritis ? 'btn-danger' : 'btn-outline'}`} 
+            style={{ width: 200, display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 600 }} 
+            onClick={() => setShowKritis(!showKritis)}
+          >
+            {showKritis ? 'Hapus Filter' : 'Stok Kritis Saja'}
+          </button>
         </div>
 
         <div className="card">
